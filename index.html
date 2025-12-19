@@ -1036,12 +1036,6 @@
                 <h1>ControlCobros</h1>
                 <p>Gestión de Préstamos y Cobros</p>
             </div>
-            
-            <div class="role-selector">
-                <div class="role-option active" data-role="admin">Administrador</div>
-                <div class="role-option" data-role="collector">Cobrador</div>
-            </div>
-            
             <form id="loginForm">
                 <div class="form-group">
                     <label for="email">Correo electrónico</label>
@@ -2057,12 +2051,12 @@
     <script>
         // Configuración de Firebase
         const firebaseConfig = {
-            apiKey: "AIzaSyDummyKeyForDemo",
-            authDomain: "controlcobros-demo.firebaseapp.com",
-            projectId: "controlcobros-demo",
-            storageBucket: "controlcobros-demo.appspot.com",
-            messagingSenderId: "123456789",
-            appId: "1:123456789:web:abcdef123456"
+            apiKey: "AIzaSyBpWt0zx9nRWixhQVePA_sbAGEX32OsKBE",
+            authDomain: "controlcobros-prod.firebaseapp.com",
+            projectId: "controlcobros-prod",
+            storageBucket: "controlcobros-prod.firebasestorage.app",
+            messagingSenderId: "731341674636",
+            appId: "1:731341674636:web:d00e3e5f715303617403a9"
         };
         
         // Inicializar Firebase
@@ -2240,15 +2234,7 @@
             // Event listeners para UI
             document.getElementById('menuToggle').addEventListener('click', toggleSidebar);
             document.getElementById('closeSidebar').addEventListener('click', toggleSidebar);
-            
-            // Event listeners para roles
-            document.querySelectorAll('.role-option').forEach(option => {
-                option.addEventListener('click', function() {
-                    document.querySelectorAll('.role-option').forEach(opt => opt.classList.remove('active'));
-                    this.classList.add('active');
-                });
-            });
-            
+
             // Event listeners para menús desplegables
             document.getElementById('collectorsMenuToggle')?.addEventListener('click', toggleSubmenu);
             document.getElementById('creditsMenuToggle')?.addEventListener('click', toggleSubmenu);
@@ -2341,38 +2327,43 @@
         // Funciones de autenticación
         function handleLogin(e) {
             e.preventDefault();
-            
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-            const role = document.querySelector('.role-option.active').getAttribute('data-role');
-            
-            // Simulación de autenticación
-            // En producción, usar Firebase Auth
-            setTimeout(() => {
-                currentUser = {
-                    uid: 'demo-user-id',
-                    email: email,
-                    displayName: email.split('@')[0]
-                };
-                
-                currentUserRole = role;
-                
-                showApp();
-                initializeApp();
-                
-                showNotification('success', 'Inicio de sesión exitoso', 'Bienvenido a ControlCobros');
-            }, 1000);
+
+            auth.signInWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    return db.collection('users').doc(userCredential.user.uid).get();
+                })
+                .then((doc) => {
+                    if (doc.exists) {
+                        currentUser = {
+                            uid: doc.id,
+                            email: doc.data().email,
+                            displayName: doc.data().email.split('@')[0]
+                        };
+                        currentUserRole = doc.data().role;
+                        showApp();
+                        initializeApp();
+                        showNotification('success', 'Inicio de sesión exitoso', 'Bienvenido a ControlCobros');
+                    } else {
+                        throw new Error('Usuario no tiene rol asignado. Contacte al administrador.');
+                    }
+                })
+                .catch((error) => {
+                    console.error("Error en login:", error);
+                    showNotification('danger', 'Error de autenticación', error.message);
+                });
         }
         
         function handleLogout() {
-            // Simulación de cierre de sesión
-            // En producción, usar Firebase Auth
-            setTimeout(() => {
+            auth.signOut().then(() => {
                 currentUser = null;
                 currentUserRole = null;
                 showAuth();
                 showNotification('info', 'Sesión cerrada', 'Has cerrado tu sesión correctamente');
-            }, 500);
+            }).catch((error) => {
+                showNotification('danger', 'Error', 'No se pudo cerrar la sesión');
+            });
         }
         
         function showAuth() {
@@ -2469,328 +2460,296 @@
                 floatingBtn.style.display = 'none';
             }
             
-            // Cargar datos simulados
-            loadSimulatedData();
+            // Cargar datos reales
+            loadRealData();
         }
         
-        function loadSimulatedData() {
-            // Cargar cobradores
-            if (document.getElementById('collectorsTableBody')) {
-                const collectorsTableBody = document.getElementById('collectorsTableBody');
-                collectorsTableBody.innerHTML = '';
-                
-                simulatedData.collectors.forEach(collector => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>${collector.name}</td>
-                        <td>${collector.email}</td>
-                        <td>${collector.phone}</td>
-                        <td>${collector.zone}</td>
-                        <td><span class="status-badge ${collector.status}">${collector.status === 'active' ? 'Activo' : 'Inactivo'}</span></td>
-                        <td>
-                            <button class="btn btn-sm btn-primary">Editar</button>
-                            <button class="btn btn-sm btn-danger">Desactivar</button>
-                        </td>
-                    `;
-                    collectorsTableBody.appendChild(row);
-                });
+        async function loadRealData() {
+            const uid = currentUser.uid;
+
+            try {
+                // === Cargar cobradores (solo para admin) ===
+                if (currentUserRole === 'admin' && document.getElementById('collectorsTableBody')) {
+                    const collectorsTableBody = document.getElementById('collectorsTableBody');
+                    collectorsTableBody.innerHTML = '<tr><td colspan="6" class="loading"><div class="spinner"></div></td></tr>';
+
+                    const collectorsSnapshot = await db.collection('collectors').get();
+                    collectorsTableBody.innerHTML = '';
+
+                    collectorsSnapshot.forEach(doc => {
+                        const collector = doc.data();
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${collector.name || 'N/A'}</td>
+                            <td>${collector.email || 'N/A'}</td>
+                            <td>${collector.phone || 'N/A'}</td>
+                            <td>${collector.zone || 'N/A'}</td>
+                            <td><span class="status-badge ${collector.status}">${collector.status === 'active' ? 'Activo' : 'Inactivo'}</span></td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" onclick="editCollector('${doc.id}')">Editar</button>
+                                <button class="btn btn-sm btn-danger" onclick="toggleCollectorStatus('${doc.id}', '${collector.status}')">
+                                    ${collector.status === 'active' ? 'Desactivar' : 'Activar'}
+                                </button>
+                            </td>
+                        `;
+                        collectorsTableBody.appendChild(row);
+                    });
+                }
+
+                // === Cargar clientes (solo para cobrador o admin) ===
+                if ((currentUserRole === 'collector' || currentUserRole === 'admin') && document.getElementById('clientsList')) {
+                    const clientsList = document.getElementById('clientsList');
+                    clientsList.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+                    // Filtrar por collectorId si es cobrador
+                    let clientsQuery = db.collection('clients');
+                    if (currentUserRole === 'collector') {
+                        clientsQuery = clientsQuery.where('collectorId', '==', uid);
+                    }
+                    const clientsSnapshot = await clientsQuery.get();
+                    clientsList.innerHTML = '';
+
+                    if (clientsSnapshot.empty) {
+                        clientsList.innerHTML = '<div class="empty-state"><i class="fas fa-users"></i><h3>No hay clientes</h3><p>Aún no has agregado clientes.</p></div>';
+                        return;
+                    }
+
+                    clientsSnapshot.forEach(doc => {
+                        const client = doc.data();
+                        const lat = client.location?.latitude || 14.07;
+                        const lng = client.location?.longitude || -87.19;
+
+                        const clientCard = document.createElement('div');
+                        clientCard.className = 'client-card';
+                        clientCard.innerHTML = `
+                            <div class="client-header">
+                                <div class="client-name">${client.name || 'N/A'}</div>
+                                <span class="status-badge active">Activo</span>
+                            </div>
+                            <div class="client-details">
+                                <div class="client-detail">
+                                    <i class="fas fa-phone"></i>
+                                    <span>${client.phone || 'N/A'}</span>
+                                </div>
+                                <div class="client-detail">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span>${client.address || 'N/A'}</span>
+                                </div>
+                                <div class="client-detail">
+                                    <i class="fas fa-store"></i>
+                                    <span>${client.business || 'N/A'}</span>
+                                </div>
+                            </div>
+                            <div class="client-actions">
+                                <button class="btn btn-sm btn-primary whatsapp-btn" onclick="openWhatsApp('${client.phone || ''}')">
+                                    <i class="fab fa-whatsapp"></i> WhatsApp
+                                </button>
+                                <button class="btn btn-sm btn-success location-btn" onclick="viewLocation(${lat}, ${lng})">
+                                    <i class="fas fa-map-marker-alt"></i> Ubicación
+                                </button>
+                            </div>
+                        `;
+                        clientsList.appendChild(clientCard);
+                    });
+                }
+
+                // === Cargar créditos (solo para admin) ===
+                if (currentUserRole === 'admin' && document.getElementById('creditsTableBody')) {
+                    const creditsTableBody = document.getElementById('creditsTableBody');
+                    creditsTableBody.innerHTML = '<tr><td colspan="9" class="loading"><div class="spinner"></div></td></tr>';
+
+                    const creditsSnapshot = await db.collection('credits').get();
+                    const clientsMap = new Map();
+                    const collectorsMap = new Map();
+
+                    // Cargar clientes y cobradores para mostrar nombres
+                    const clientsSnapshot = await db.collection('clients').get();
+                    clientsSnapshot.forEach(doc => clientsMap.set(doc.id, doc.data().name || 'N/A'));
+
+                    const collectorsSnapshot2 = await db.collection('collectors').get();
+                    collectorsSnapshot2.forEach(doc => collectorsMap.set(doc.id, doc.data().name || 'N/A'));
+
+                    creditsTableBody.innerHTML = '';
+                    creditsSnapshot.forEach(doc => {
+                        const credit = doc.data();
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>#${doc.id.substring(0,8)}</td>
+                            <td>${clientsMap.get(credit.clientId) || 'N/A'}</td>
+                            <td>${collectorsMap.get(credit.collectorId) || 'N/A'}</td>
+                            <td>$${credit.amount || 0}</td>
+                            <td>${credit.interest || 0}%</td>
+                            <td>$${credit.total || 0}</td>
+                            <td>${credit.term || 0} días</td>
+                            <td><span class="status-badge ${credit.status}">${getStatusText(credit.status)}</span></td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" onclick="viewCreditDetails('${doc.id}')">Ver Detalles</button>
+                            </td>
+                        `;
+                        creditsTableBody.appendChild(row);
+                    });
+                }
+
+                // === Cargar mis créditos (solo para cobrador) ===
+                if (currentUserRole === 'collector' && document.getElementById('myCreditsList')) {
+                    const myCreditsList = document.getElementById('myCreditsList');
+                    myCreditsList.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+                    const creditsSnapshot = await db.collection('credits').where('collectorId', '==', uid).get();
+                    const clientsMap = new Map();
+                    const clientsSnapshot = await db.collection('clients').get();
+                    clientsSnapshot.forEach(doc => clientsMap.set(doc.id, doc.data()));
+
+                    myCreditsList.innerHTML = '';
+                    if (creditsSnapshot.empty) {
+                        myCreditsList.innerHTML = '<div class="empty-state"><i class="fas fa-hand-holding-usd"></i><h3>No hay créditos</h3><p>Aún no has creado créditos.</p></div>';
+                        return;
+                    }
+
+                    creditsSnapshot.forEach(doc => {
+                        const credit = doc.data();
+                        const client = clientsMap.get(credit.clientId) || {};
+                        const lat = client.location?.latitude || 14.07;
+                        const lng = client.location?.longitude || -87.19;
+                        const totalPayments = (credit.paymentsMade || 0) + (credit.paymentsPending || 0);
+                        const progressPercentage = totalPayments > 0 ? ((credit.paymentsMade || 0) / totalPayments) * 100 : 0;
+
+                        const creditCard = document.createElement('div');
+                        creditCard.className = 'credit-card';
+                        creditCard.innerHTML = `
+                            <div class="credit-header">
+                                <div class="credit-amount">$${credit.total || 0}</div>
+                                <span class="status-badge ${credit.status}">${getStatusText(credit.status)}</span>
+                            </div>
+                            <div class="credit-details">
+                                <div class="credit-detail">
+                                    <div class="credit-detail-label">Cliente</div>
+                                    <div class="credit-detail-value">${client.name || 'N/A'}</div>
+                                </div>
+                                <div class="credit-detail">
+                                    <div class="credit-detail-label">Cuota</div>
+                                    <div class="credit-detail-value">$${credit.paymentAmount || 0}</div>
+                                </div>
+                                <div class="credit-detail">
+                                    <div class="credit-detail-label">Pagos</div>
+                                    <div class="credit-detail-value">${credit.paymentsMade || 0}/${totalPayments}</div>
+                                </div>
+                            </div>
+                            <div class="payment-progress">
+                                <div class="payment-progress-bar" style="width: ${progressPercentage}%"></div>
+                            </div>
+                            <div class="payment-actions">
+                                <button class="btn btn-sm btn-primary" onclick="openPaymentModal('${doc.id}')">Registrar Pago</button>
+                                <button class="btn btn-sm btn-warning" onclick="openRenewalModal('${doc.id}')">Renovar</button>
+                                <button class="btn btn-sm whatsapp-btn" onclick="openWhatsApp('${client.phone || ''}')">
+                                    <i class="fab fa-whatsapp"></i>
+                                </button>
+                            </div>
+                        `;
+                        myCreditsList.appendChild(creditCard);
+                    });
+                }
+
+                // === Clientes en mora (admin o cobrador) ===
+                if ((currentUserRole === 'admin' || currentUserRole === 'collector') && document.getElementById('overdueClientsList')) {
+                    const overdueClientsList = document.getElementById('overdueClientsList');
+                    overdueClientsList.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+                    let query = db.collection('credits').where('status', '==', 'overdue');
+                    if (currentUserRole === 'collector') {
+                        query = query.where('collectorId', '==', uid);
+                    }
+                    const overdueSnapshot = await query.get();
+                    const clientsMap = new Map();
+                    const collectorsMap = new Map();
+
+                    const clientsSnap = await db.collection('clients').get();
+                    clientsSnap.forEach(doc => clientsMap.set(doc.id, doc.data()));
+
+                    if (currentUserRole === 'admin') {
+                        const collSnap = await db.collection('collectors').get();
+                        collSnap.forEach(doc => collectorsMap.set(doc.id, doc.data().name || 'N/A'));
+                    }
+
+                    overdueClientsList.innerHTML = '';
+                    if (overdueSnapshot.empty) {
+                        overdueClientsList.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>No hay morosos</h3><p>Todos los créditos están al día.</p></div>';
+                        return;
+                    }
+
+                    overdueSnapshot.forEach(doc => {
+                        const credit = doc.data();
+                        const client = clientsMap.get(credit.clientId) || {};
+                        const collectorName = currentUserRole === 'admin' ? (collectorsMap.get(credit.collectorId) || 'N/A') : '';
+                        const lat = client.location?.latitude || 14.07;
+                        const lng = client.location?.longitude || -87.19;
+
+                        const clientCard = document.createElement('div');
+                        clientCard.className = 'client-card';
+                        clientCard.innerHTML = `
+                            <div class="client-header">
+                                <div class="client-name">${client.name || 'N/A'}</div>
+                                <span class="status-badge overdue">En Mora</span>
+                            </div>
+                            <div class="client-details">
+                                <div class="client-detail">
+                                    <i class="fas fa-phone"></i>
+                                    <span>${client.phone || 'N/A'}</span>
+                                </div>
+                                <div class="client-detail">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span>${client.address || 'N/A'}</span>
+                                </div>
+                                ${currentUserRole === 'admin' ? `<div class="client-detail"><i class="fas fa-user"></i><span>Cobrador: ${collectorName}</span></div>` : ''}
+                            </div>
+                            <div class="client-details">
+                                <div class="client-detail">
+                                    <i class="fas fa-dollar-sign"></i>
+                                    <span>Crédito: $${credit.total || 0}</span>
+                                </div>
+                                <div class="client-detail">
+                                    <i class="fas fa-calendar-times"></i>
+                                    <span>Pagos pendientes: ${credit.paymentsPending || 0}</span>
+                                </div>
+                            </div>
+                            <div class="client-actions">
+                                <button class="btn btn-sm btn-primary whatsapp-btn" onclick="openWhatsApp('${client.phone || ''}')">
+                                    <i class="fab fa-whatsapp"></i> WhatsApp
+                                </button>
+                                <button class="btn btn-sm btn-success location-btn" onclick="viewLocation(${lat}, ${lng})">
+                                    <i class="fas fa-map-marker-alt"></i> Ubicación
+                                </button>
+                            </div>
+                        `;
+                        overdueClientsList.appendChild(clientCard);
+                    });
+                }
+
+                // === Llenar selectores ===
+                if (document.getElementById('creditClient')) {
+                    const creditClient = document.getElementById('creditClient');
+                    creditClient.innerHTML = '<option value="">Seleccionar cliente</option>';
+                    const clientsQuery = currentUserRole === 'collector' 
+                        ? db.collection('clients').where('collectorId', '==', uid)
+                        : db.collection('clients');
+                    const clientsSnap = await clientsQuery.get();
+                    clientsSnap.forEach(doc => {
+                        const client = doc.data();
+                        const option = document.createElement('option');
+                        option.value = doc.id;
+                        option.textContent = client.name;
+                        creditClient.appendChild(option);
+                    });
+                }
+
+                // === Inicializar gráficos y mapas ===
+                initializeCharts();
+                initializeMaps();
+
+            } catch (error) {
+                console.error("Error al cargar datos reales:", error);
+                showNotification('danger', 'Error', 'No se pudieron cargar los datos. Intente nuevamente.');
             }
-            
-            // Cargar clientes
-            if (document.getElementById('clientsList')) {
-                const clientsList = document.getElementById('clientsList');
-                clientsList.innerHTML = '';
-                
-                simulatedData.clients.forEach(client => {
-                    const clientCard = document.createElement('div');
-                    clientCard.className = 'client-card';
-                    clientCard.innerHTML = `
-                        <div class="client-header">
-                            <div class="client-name">${client.name}</div>
-                            <span class="status-badge active">Activo</span>
-                        </div>
-                        <div class="client-details">
-                            <div class="client-detail">
-                                <i class="fas fa-phone"></i>
-                                <span>${client.phone}</span>
-                            </div>
-                            <div class="client-detail">
-                                <i class="fas fa-map-marker-alt"></i>
-                                <span>${client.address}</span>
-                            </div>
-                            <div class="client-detail">
-                                <i class="fas fa-store"></i>
-                                <span>${client.business}</span>
-                            </div>
-                        </div>
-                        <div class="client-actions">
-                            <button class="btn btn-sm btn-primary whatsapp-btn" onclick="openWhatsApp('${client.phone}')">
-                                <i class="fab fa-whatsapp"></i> WhatsApp
-                            </button>
-                            <button class="btn btn-sm btn-success location-btn" onclick="viewLocation(${client.location.lat}, ${client.location.lng})">
-                                <i class="fas fa-map-marker-alt"></i> Ubicación
-                            </button>
-                        </div>
-                    `;
-                    clientsList.appendChild(clientCard);
-                });
-            }
-            
-            // Cargar créditos
-            if (document.getElementById('creditsTableBody')) {
-                const creditsTableBody = document.getElementById('creditsTableBody');
-                creditsTableBody.innerHTML = '';
-                
-                simulatedData.credits.forEach(credit => {
-                    const client = simulatedData.clients.find(c => c.id === credit.clientId);
-                    const collector = simulatedData.collectors.find(c => c.id === credit.collectorId);
-                    
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>#${credit.id}</td>
-                        <td>${client ? client.name : 'N/A'}</td>
-                        <td>${collector ? collector.name : 'N/A'}</td>
-                        <td>$${credit.amount}</td>
-                        <td>${credit.interest}%</td>
-                        <td>$${credit.total}</td>
-                        <td>${credit.term} días</td>
-                        <td><span class="status-badge ${credit.status}">${getStatusText(credit.status)}</span></td>
-                        <td>
-                            <button class="btn btn-sm btn-primary">Ver Detalles</button>
-                        </td>
-                    `;
-                    creditsTableBody.appendChild(row);
-                });
-            }
-            
-            // Cargar mis créditos
-            if (document.getElementById('myCreditsList')) {
-                const myCreditsList = document.getElementById('myCreditsList');
-                myCreditsList.innerHTML = '';
-                
-                // Simular que el cobrador actual tiene ID 1
-                const collectorId = 1;
-                const myCredits = simulatedData.credits.filter(c => c.collectorId === collectorId);
-                
-                myCredits.forEach(credit => {
-                    const client = simulatedData.clients.find(c => c.id === credit.clientId);
-                    const progressPercentage = (credit.paymentsMade / (credit.paymentsMade + credit.paymentsPending)) * 100;
-                    
-                    const creditCard = document.createElement('div');
-                    creditCard.className = 'credit-card';
-                    creditCard.innerHTML = `
-                        <div class="credit-header">
-                            <div class="credit-amount">$${credit.total}</div>
-                            <span class="status-badge ${credit.status}">${getStatusText(credit.status)}</span>
-                        </div>
-                        <div class="credit-details">
-                            <div class="credit-detail">
-                                <div class="credit-detail-label">Cliente</div>
-                                <div class="credit-detail-value">${client ? client.name : 'N/A'}</div>
-                            </div>
-                            <div class="credit-detail">
-                                <div class="credit-detail-label">Cuota</div>
-                                <div class="credit-detail-value">$${credit.paymentAmount}</div>
-                            </div>
-                            <div class="credit-detail">
-                                <div class="credit-detail-label">Pagos</div>
-                                <div class="credit-detail-value">${credit.paymentsMade}/${credit.paymentsMade + credit.paymentsPending}</div>
-                            </div>
-                        </div>
-                        <div class="payment-progress">
-                            <div class="payment-progress-bar" style="width: ${progressPercentage}%"></div>
-                        </div>
-                        <div class="payment-actions">
-                            <button class="btn btn-sm btn-primary" onclick="openPaymentModal(${credit.id})">Registrar Pago</button>
-                            <button class="btn btn-sm btn-warning" onclick="openRenewalModal(${credit.id})">Renovar</button>
-                            <button class="btn btn-sm whatsapp-btn" onclick="openWhatsApp('${client ? client.phone : ''}')">
-                                <i class="fab fa-whatsapp"></i>
-                            </button>
-                        </div>
-                    `;
-                    myCreditsList.appendChild(creditCard);
-                });
-            }
-            
-            // Cargar clientes en mora
-            if (document.getElementById('overdueClientsList')) {
-                const overdueClientsList = document.getElementById('overdueClientsList');
-                overdueClientsList.innerHTML = '';
-                
-                const overdueCredits = simulatedData.credits.filter(c => c.status === 'overdue');
-                
-                overdueCredits.forEach(credit => {
-                    const client = simulatedData.clients.find(c => c.id === credit.clientId);
-                    const collector = simulatedData.collectors.find(c => c.id === credit.collectorId);
-                    
-                    const clientCard = document.createElement('div');
-                    clientCard.className = 'client-card';
-                    clientCard.innerHTML = `
-                        <div class="client-header">
-                            <div class="client-name">${client ? client.name : 'N/A'}</div>
-                            <span class="status-badge overdue">En Mora</span>
-                        </div>
-                        <div class="client-details">
-                            <div class="client-detail">
-                                <i class="fas fa-phone"></i>
-                                <span>${client ? client.phone : 'N/A'}</span>
-                            </div>
-                            <div class="client-detail">
-                                <i class="fas fa-map-marker-alt"></i>
-                                <span>${client ? client.address : 'N/A'}</span>
-                            </div>
-                            <div class="client-detail">
-                                <i class="fas fa-user"></i>
-                                <span>Cobrador: ${collector ? collector.name : 'N/A'}</span>
-                            </div>
-                        </div>
-                        <div class="client-details">
-                            <div class="client-detail">
-                                <i class="fas fa-dollar-sign"></i>
-                                <span>Crédito: $${credit.total}</span>
-                            </div>
-                            <div class="client-detail">
-                                <i class="fas fa-calendar-times"></i>
-                                <span>Pagos pendientes: ${credit.paymentsPending}</span>
-                            </div>
-                        </div>
-                        <div class="client-actions">
-                            <button class="btn btn-sm btn-primary whatsapp-btn" onclick="openWhatsApp('${client ? client.phone : ''}')">
-                                <i class="fab fa-whatsapp"></i> WhatsApp
-                            </button>
-                            <button class="btn btn-sm btn-success location-btn" onclick="viewLocation(${client ? client.location.lat : 14.07}, ${client ? client.location.lng : -87.19})">
-                                <i class="fas fa-map-marker-alt"></i> Ubicación
-                            </button>
-                        </div>
-                    `;
-                    overdueClientsList.appendChild(clientCard);
-                });
-            }
-            
-            // Cargar cobros del día para cobrador
-            if (document.getElementById('dailyPaymentsCollectorList')) {
-                const dailyPaymentsCollectorList = document.getElementById('dailyPaymentsCollectorList');
-                dailyPaymentsCollectorList.innerHTML = '';
-                
-                // Simular que el cobrador actual tiene ID 1
-                const collectorId = 1;
-                const myCredits = simulatedData.credits.filter(c => c.collectorId === collectorId && c.status === 'active');
-                
-                myCredits.forEach(credit => {
-                    const client = simulatedData.clients.find(c => c.id === credit.clientId);
-                    
-                    const clientCard = document.createElement('div');
-                    clientCard.className = 'client-card';
-                    clientCard.innerHTML = `
-                        <div class="client-header">
-                            <div class="client-name">${client ? client.name : 'N/A'}</div>
-                            <span class="status-badge pending">Pendiente</span>
-                        </div>
-                        <div class="client-details">
-                            <div class="client-detail">
-                                <i class="fas fa-phone"></i>
-                                <span>${client ? client.phone : 'N/A'}</span>
-                            </div>
-                            <div class="client-detail">
-                                <i class="fas fa-map-marker-alt"></i>
-                                <span>${client ? client.address : 'N/A'}</span>
-                            </div>
-                        </div>
-                        <div class="client-details">
-                            <div class="client-detail">
-                                <i class="fas fa-dollar-sign"></i>
-                                <span>Cuota: $${credit.paymentAmount}</span>
-                            </div>
-                            <div class="client-detail">
-                                <i class="fas fa-calendar-check"></i>
-                                <span>Pagos: ${credit.paymentsMade}/${credit.paymentsMade + credit.paymentsPending}</span>
-                            </div>
-                        </div>
-                        <div class="client-actions">
-                            <button class="btn btn-sm btn-primary" onclick="openPaymentModal(${credit.id})">Registrar Pago</button>
-                            <button class="btn btn-sm whatsapp-btn" onclick="openWhatsApp('${client ? client.phone : ''}')">
-                                <i class="fab fa-whatsapp"></i>
-                            </button>
-                            <button class="btn btn-sm btn-success location-btn" onclick="viewLocation(${client ? client.location.lat : 14.07}, ${client ? client.location.lng : -87.19})">
-                                <i class="fas fa-map-marker-alt"></i>
-                            </button>
-                        </div>
-                    `;
-                    dailyPaymentsCollectorList.appendChild(clientCard);
-                });
-            }
-            
-            // Cargar cobros del día para dashboard de cobrador
-            if (document.getElementById('dailyPaymentsList')) {
-                const dailyPaymentsList = document.getElementById('dailyPaymentsList');
-                dailyPaymentsList.innerHTML = '';
-                
-                // Simular que el cobrador actual tiene ID 1
-                const collectorId = 1;
-                const myCredits = simulatedData.credits.filter(c => c.collectorId === collectorId && c.status === 'active');
-                
-                myCredits.forEach(credit => {
-                    const client = simulatedData.clients.find(c => c.id === credit.clientId);
-                    
-                    const clientCard = document.createElement('div');
-                    clientCard.className = 'client-card';
-                    clientCard.innerHTML = `
-                        <div class="client-header">
-                            <div class="client-name">${client ? client.name : 'N/A'}</div>
-                            <span class="status-badge pending">Pendiente</span>
-                        </div>
-                        <div class="client-details">
-                            <div class="client-detail">
-                                <i class="fas fa-dollar-sign"></i>
-                                <span>Cuota: $${credit.paymentAmount}</span>
-                            </div>
-                            <div class="client-detail">
-                                <i class="fas fa-map-marker-alt"></i>
-                                <span>${client ? client.address : 'N/A'}</span>
-                            </div>
-                        </div>
-                        <div class="client-actions">
-                            <button class="btn btn-sm btn-primary" onclick="openPaymentModal(${credit.id})">Registrar Pago</button>
-                            <button class="btn btn-sm whatsapp-btn" onclick="openWhatsApp('${client ? client.phone : ''}')">
-                                <i class="fab fa-whatsapp"></i>
-                            </button>
-                        </div>
-                    `;
-                    dailyPaymentsList.appendChild(clientCard);
-                });
-            }
-            
-            // Llenar selector de clientes para crear crédito
-            if (document.getElementById('creditClient')) {
-                const creditClient = document.getElementById('creditClient');
-                creditClient.innerHTML = '<option value="">Seleccionar cliente</option>';
-                
-                simulatedData.clients.forEach(client => {
-                    const option = document.createElement('option');
-                    option.value = client.id;
-                    option.textContent = client.name;
-                    creditClient.appendChild(option);
-                });
-            }
-            
-            // Llenar selector de cobradores para reportes
-            if (document.getElementById('collectorSelect')) {
-                const collectorSelect = document.getElementById('collectorSelect');
-                collectorSelect.innerHTML = '<option value="">Todos los cobradores</option>';
-                
-                simulatedData.collectors.forEach(collector => {
-                    const option = document.createElement('option');
-                    option.value = collector.id;
-                    option.textContent = collector.name;
-                    collectorSelect.appendChild(option);
-                });
-            }
-            
-            // Inicializar gráficos
-            initializeCharts();
-            
-            // Inicializar mapas
-            initializeMaps();
         }
         
         function initializeCharts() {
@@ -3104,90 +3063,226 @@
         }
         
         // Funciones de formularios
-        function handleAddCollector(e) {
+        async function handleAddCollector(e) {
             e.preventDefault();
             
+            // Verificación adicional de que es el admin principal
+            if (currentUser.email !== 'admin@control.com') {
+                showNotification('danger', 'Acceso denegado', 'Solo el administrador principal puede crear cobradores.');
+                return;
+            }
+
             const name = document.getElementById('collectorName').value;
             const email = document.getElementById('collectorEmail').value;
             const phone = document.getElementById('collectorPhone').value;
             const zone = document.getElementById('collectorZone').value;
             const password = document.getElementById('collectorPassword').value;
             const address = document.getElementById('collectorAddress').value;
-            
-            // Simulación de guardado
-            setTimeout(() => {
-                showNotification('success', 'Cobrador agregado', `${name} ha sido agregado exitosamente`);
+
+            if (!name || !email || !phone || !zone || !password) {
+                showNotification('warning', 'Campos incompletos', 'Por favor completa todos los campos obligatorios.');
+                return;
+            }
+
+            try {
+                // Paso 1: Crear usuario en Firebase Authentication
+                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                const uid = userCredential.user.uid;
+
+                // Paso 2: Guardar rol en /users/{uid}
+                await db.collection('users').doc(uid).set({
+                    email: email,
+                    role: 'collector',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                // Paso 3: Guardar datos del cobrador en /collectors
+                await db.collection('collectors').add({
+                    userId: uid,
+                    name: name,
+                    email: email,
+                    phone: phone,
+                    zone: zone,
+                    address: address,
+                    status: 'active',
+                    location: new firebase.firestore.GeoPoint(14.0723, -87.1921), // valor por defecto; se puede actualizar después
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                showNotification('success', 'Cobrador creado', `${name} ha sido creado exitosamente. Se ha enviado un correo con sus credenciales.`);
                 navigateToPage('collectors');
-                
-                // Limpiar formulario
                 document.getElementById('addCollectorForm').reset();
-            }, 1000);
+                loadRealData(); // Recargar la lista de cobradores
+
+            } catch (error) {
+                console.error("Error al crear cobrador:", error);
+                let message = 'No se pudo crear el cobrador. Intente nuevamente.';
+                if (error.code === 'auth/email-already-in-use') {
+                    message = 'El correo ya está registrado en el sistema.';
+                } else if (error.code === 'auth/invalid-email') {
+                    message = 'El correo electrónico no es válido.';
+                } else if (error.code === 'auth/weak-password') {
+                    message = 'La contraseña debe tener al menos 6 caracteres.';
+                }
+                showNotification('danger', 'Error', message);
+            }
         }
         
-        function handleAddClient(e) {
+        async function handleAddClient(e) {
             e.preventDefault();
-            
             const name = document.getElementById('clientName').value;
             const phone = document.getElementById('clientPhone').value;
             const address = document.getElementById('clientAddress').value;
             const business = document.getElementById('clientBusiness').value;
             const route = document.getElementById('clientRoute').value;
             const references = document.getElementById('clientReferences').value;
-            const latitude = document.getElementById('latitude').textContent;
-            const longitude = document.getElementById('longitude').textContent;
-            
-            // Simulación de guardado
-            setTimeout(() => {
+            const latitude = parseFloat(document.getElementById('latitude').textContent);
+            const longitude = parseFloat(document.getElementById('longitude').textContent);
+
+            if (isNaN(latitude) || isNaN(longitude)) {
+                showNotification('danger', 'Error', 'Debes obtener la ubicación GPS antes de guardar.');
+                return;
+            }
+
+            try {
+                await db.collection('clients').add({
+                    collectorId: currentUser.uid,
+                    name: name,
+                    phone: phone,
+                    address: address,
+                    business: business,
+                    route: route,
+                    references: references,
+                    location: new firebase.firestore.GeoPoint(latitude, longitude),
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
                 showNotification('success', 'Cliente agregado', `${name} ha sido agregado exitosamente`);
                 navigateToPage('clients');
-                
-                // Limpiar formulario
                 document.getElementById('addClientForm').reset();
                 document.getElementById('locationInfo').style.display = 'none';
-            }, 1000);
+                loadRealData(); // Recargar la lista
+            } catch (error) {
+                console.error("Error al guardar cliente:", error);
+                showNotification('danger', 'Error', 'No se pudo guardar el cliente. Intente nuevamente.');
+            }
         }
         
-        function handleAddCredit(e) {
+        async function handleAddCredit(e) {
             e.preventDefault();
-            
             const clientId = document.getElementById('creditClient').value;
-            const amount = document.getElementById('creditAmount').value;
-            const interest = document.getElementById('creditInterest').value;
-            const term = document.getElementById('creditTerm').value;
+            const amount = parseFloat(document.getElementById('creditAmount').value);
+            const interest = parseFloat(document.getElementById('creditInterest').value);
+            const term = parseInt(document.getElementById('creditTerm').value);
             const paymentFrequency = document.getElementById('paymentFrequency').value;
             const notes = document.getElementById('creditNotes').value;
-            
-            // Simulación de guardado
-            setTimeout(() => {
+
+            if (!clientId) {
+                showNotification('warning', 'Advertencia', 'Debe seleccionar un cliente.');
+                return;
+            }
+
+            const total = amount * (1 + interest / 100);
+            let paymentAmount;
+            switch (paymentFrequency) {
+                case 'daily':
+                    paymentAmount = total / term;
+                    break;
+                case 'weekly':
+                    paymentAmount = total / (term / 7);
+                    break;
+                case 'biweekly':
+                    paymentAmount = total / (term / 15);
+                    break;
+                case 'monthly':
+                    paymentAmount = total / (term / 30);
+                    break;
+                default:
+                    paymentAmount = total / term;
+            }
+
+            try {
+                await db.collection('credits').add({
+                    clientId: clientId,
+                    collectorId: currentUser.uid,
+                    amount: amount,
+                    interest: interest,
+                    total: total,
+                    term: term,
+                    paymentFrequency: paymentFrequency,
+                    paymentAmount: paymentAmount,
+                    startDate: firebase.firestore.FieldValue.serverTimestamp(),
+                    status: 'active',
+                    paymentsMade: 0,
+                    paymentsPending: term,
+                    notes: notes,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
                 showNotification('success', 'Crédito creado', 'El crédito ha sido creado exitosamente');
                 navigateToPage('my-credits');
-                
-                // Limpiar formulario
                 document.getElementById('addCreditForm').reset();
                 document.getElementById('totalAmount').textContent = '$0';
                 document.getElementById('paymentAmount').textContent = '$0';
-            }, 1000);
+                loadRealData(); // Recargar la lista
+            } catch (error) {
+                console.error("Error al crear crédito:", error);
+                showNotification('danger', 'Error', 'No se pudo crear el crédito. Intente nuevamente.');
+            }
         }
         
-        function handlePayment(e) {
+        async function handlePayment(e) {
             e.preventDefault();
-            
+            const creditId = currentCreditId; // Necesitamos saber a qué crédito pertenece el pago
             const date = document.getElementById('paymentDate').value;
-            const amount = document.getElementById('paymentAmount').value;
+            const amount = parseFloat(document.getElementById('paymentAmount').value);
             const type = document.getElementById('paymentType').value;
             const notes = document.getElementById('paymentNotes').value;
-            
-            // Simulación de guardado
-            setTimeout(() => {
+
+            if (!creditId) {
+                showNotification('danger', 'Error', 'No se ha seleccionado un crédito.');
+                return;
+            }
+
+            try {
+                // 1. Registrar el pago en la colección 'payments'
+                await db.collection('payments').add({
+                    creditId: creditId,
+                    amount: amount,
+                    date: firebase.firestore.Timestamp.fromDate(new Date(date)),
+                    type: type,
+                    notes: notes,
+                    collectorId: currentUser.uid,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                // 2. Actualizar el crédito: incrementar paymentsMade y ajustar estado si es necesario
+                const creditRef = db.collection('credits').doc(creditId);
+                const creditDoc = await creditRef.get();
+                if (!creditDoc.exists) throw new Error('Crédito no encontrado');
+
+                const credit = creditDoc.data();
+                const newPaymentsMade = (credit.paymentsMade || 0) + 1;
+                const totalPayments = (credit.paymentsMade || 0) + (credit.paymentsPending || 0);
+                let newStatus = credit.status;
+
+                // Si ya se hicieron todos los pagos, marcar como pagado
+                if (newPaymentsMade >= totalPayments) {
+                    newStatus = 'paid';
+                }
+
+                await creditRef.update({
+                    paymentsMade: newPaymentsMade,
+                    status: newStatus
+                });
+
                 showNotification('success', 'Pago registrado', 'El pago ha sido registrado exitosamente');
                 document.getElementById('paymentModal').classList.remove('open');
-                
-                // Limpiar formulario
                 document.getElementById('paymentForm').reset();
-                
-                // Recargar página actual
-                loadSimulatedData();
-            }, 1000);
+                loadRealData(); // Recargar todos los datos
+
+            } catch (error) {
+                console.error("Error al registrar pago:", error);
+                showNotification('danger', 'Error', 'No se pudo registrar el pago. Intente nuevamente.');
+            }
         }
         
         function handleRenewal(e) {
@@ -3267,15 +3362,17 @@
             }
         }
         
+        let currentCreditId = null;
+
         function openPaymentModal(creditId) {
+            currentCreditId = creditId;
             document.getElementById('paymentModal').classList.add('open');
-            
-            // Configurar fecha actual
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('paymentDate').value = today;
         }
         
         function openRenewalModal(creditId) {
+            currentCreditId = creditId;
             document.getElementById('renewalModal').classList.add('open');
         }
         
