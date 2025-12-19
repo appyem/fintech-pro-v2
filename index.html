@@ -2857,35 +2857,19 @@
             // Mapa de dashboard de administrador
             if (document.getElementById('collectorMap')) {
                 map = L.map('collectorMap').setView([14.0723, -87.1921], 13);
-                
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 }).addTo(map);
-                
-                // Añadir marcadores para cada cobrador
-                simulatedData.collectors.forEach(collector => {
-                    if (collector.status === 'active') {
-                        const marker = L.marker([collector.location.lat, collector.location.lng]).addTo(map);
-                        marker.bindPopup(`<b>${collector.name}</b><br>Zona: ${collector.zone}<br>Estado: Activo`);
-                        markers.push(marker);
-                    }
-                });
+                // Nota: Los mapas reales se implementarán en una futura versión
+                // Por ahora, el mapa se muestra vacío o con un marcador fijo
             }
-            
             // Mapa de ubicación en vivo
             if (document.getElementById('liveCollectorMap')) {
                 const liveMap = L.map('liveCollectorMap').setView([14.0723, -87.1921], 13);
-                
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 }).addTo(liveMap);
-                
-                // Añadir marcadores para cada cobrador
-                simulatedData.collectors.forEach(collector => {
-                    const color = collector.status === 'active' ? 'green' : 'red';
-                    const marker = L.marker([collector.location.lat, collector.location.lng]).addTo(liveMap);
-                    marker.bindPopup(`<b>${collector.name}</b><br>Zona: ${collector.zone}<br>Estado: ${collector.status === 'active' ? 'Activo' : 'Inactivo'}`);
-                });
+                // Nota: Funcionalidad de ubicación en vivo requiere datos reales de GPS de cobradores
             }
         }
         
