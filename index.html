@@ -20,9 +20,8 @@
     <!-- Chart.js para gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
-    <!-- Manifest para PWA -->
-    <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiQ29udHJvbENvYnJvcyIsInNob3J0X25hbWUiOiJDb250cm9sQ29icm9zIiwiZGlzcGxheSI6InN0YW5kYWxvbmUiLCJiYWNrZ3JvdW5kX2NvbG9yIjoiIzJhMmEzYSIsInRoZW1lX2NvbG9yIjoiIzJhMmEzYSIsIm9yaWVudGF0aW9uIjoicG9ydHJhaXQiLCJpY29ucyI6W3sic3JjIjoiaWNvbi5wbmciLCJzaXplcyI6IjE5MngxOTIiLCJ0eXBlIjoiaW1hZ2UvcG5nIn1dfQ==">
     
+
     <style>
         :root {
             --primary-color: #1a73e8;
@@ -2065,6 +2064,11 @@
         const db = firebase.firestore();
         
         // Variables globales
+
+        let incomeChart = null;
+        let periodChart = null;
+        let collectorChart = null;
+        let myReportChart = null;
         let currentUser = null;
         let currentUserRole = null;
         let currentPage = 'dashboard';
@@ -2300,28 +2304,7 @@
             document.getElementById('paymentDate')?.setAttribute('value', today);
             document.getElementById('reportDate')?.setAttribute('value', today);
             
-            // Configurar Service Worker para PWA
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('data:text/javascript;base64,' + btoa(`
-                    self.addEventListener('install', event => {
-                        self.skipWaiting();
-                    });
-                    
-                    self.addEventListener('activate', event => {
-                        event.waitUntil(
-                            clients.claim()
-                        );
-                    });
-                    
-                    self.addEventListener('fetch', event => {
-                        event.respondWith(
-                            fetch(event.request).catch(() => {
-                                return new Response('Offline');
-                            })
-                        );
-                    });
-                `));
-            }
+            
         });
         
         // Funciones de autenticación
@@ -2753,10 +2736,13 @@
         }
         
         function initializeCharts() {
-            // Gráfico de ingresos diarios
+            // Destruir gráfico existente si ya existe
+            if (incomeChart) {
+                incomeChart.destroy();
+            }
             if (document.getElementById('incomeChart')) {
                 const ctx = document.getElementById('incomeChart').getContext('2d');
-                new Chart(ctx, {
+                incomeChart = new Chart(ctx, {
                     type: 'line',
                     data: {
                         labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
@@ -2772,29 +2758,22 @@
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: false
-                            }
-                        },
+                        plugins: { legend: { display: false } },
                         scales: {
                             y: {
                                 beginAtZero: true,
-                                ticks: {
-                                    callback: function(value) {
-                                        return '$' + value;
-                                    }
-                                }
+                                ticks: { callback: v => '$' + v }
                             }
                         }
                     }
                 });
             }
-            
-            // Gráfico de reportes por período
+
+            // === Period Chart ===
+            if (periodChart) periodChart.destroy();
             if (document.getElementById('periodChart')) {
                 const ctx = document.getElementById('periodChart').getContext('2d');
-                new Chart(ctx, {
+                periodChart = new Chart(ctx, {
                     type: 'bar',
                     data: {
                         labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
@@ -2809,59 +2788,44 @@
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: false
-                            }
-                        },
+                        plugins: { legend: { display: false } },
                         scales: {
                             y: {
                                 beginAtZero: true,
-                                ticks: {
-                                    callback: function(value) {
-                                        return '$' + value;
-                                    }
-                                }
+                                ticks: { callback: v => '$' + v }
                             }
                         }
                     }
                 });
             }
-            
-            // Gráfico de reportes por cobrador
+
+            // === Collector Chart ===
+            if (collectorChart) collectorChart.destroy();
             if (document.getElementById('collectorChart')) {
                 const ctx = document.getElementById('collectorChart').getContext('2d');
-                new Chart(ctx, {
+                collectorChart = new Chart(ctx, {
                     type: 'doughnut',
                     data: {
                         labels: ['Juan Pérez', 'María García', 'Carlos López', 'Otros'],
                         datasets: [{
                             data: [30, 25, 20, 25],
-                            backgroundColor: [
-                                '#1a73e8',
-                                '#34a853',
-                                '#fbbc05',
-                                '#ea4335'
-                            ],
+                            backgroundColor: ['#1a73e8', '#34a853', '#fbbc05', '#ea4335'],
                             borderWidth: 0
                         }]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'bottom'
-                            }
-                        }
+                        plugins: { legend: { position: 'bottom' } }
                     }
                 });
             }
-            
-            // Gráfico de mis reportes
+
+            // === My Report Chart ===
+            if (myReportChart) myReportChart.destroy();
             if (document.getElementById('myReportChart')) {
                 const ctx = document.getElementById('myReportChart').getContext('2d');
-                new Chart(ctx, {
+                myReportChart = new Chart(ctx, {
                     type: 'line',
                     data: {
                         labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'],
@@ -2877,19 +2841,11 @@
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: false
-                            }
-                        },
+                        plugins: { legend: { display: false } },
                         scales: {
                             y: {
                                 beginAtZero: true,
-                                ticks: {
-                                    callback: function(value) {
-                                        return '$' + value;
-                                    }
-                                }
+                                ticks: { callback: v => '$' + v }
                             }
                         }
                     }
