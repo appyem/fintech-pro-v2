@@ -2254,7 +2254,18 @@
                     navigateToPage(page);
                 });
             });
-            
+
+            // Event listeners para actualizar mapa
+            document.getElementById('refreshMap')?.addEventListener('click', async function() {
+                await initializeMaps();
+                showNotification('info', 'Mapa actualizado', 'La ubicación de los cobradores ha sido actualizada.');
+            });
+
+            // Event listeners para mapa completo
+            document.getElementById('viewFullMap')?.addEventListener('click', function() {
+                navigateToPage('collector-map');
+            });
+                        
             // Event listeners para tabs
             document.querySelectorAll('.tab').forEach(tab => {
                 tab.addEventListener('click', function() {
@@ -2445,6 +2456,25 @@
             
             // Cargar datos reales
             loadRealData();
+        }
+
+
+        async function toggleCollectorStatus(collectorId, currentStatus) {
+            if (!confirm(`¿Está seguro de que desea ${currentStatus === 'active' ? 'desactivar' : 'activar'} este cobrador?`)) {
+                return;
+            }
+
+            try {
+                const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+                await db.collection('collectors').doc(collectorId).update({
+                    status: newStatus
+                });
+                showNotification('success', 'Estado actualizado', `El cobrador ha sido ${newStatus === 'active' ? 'activado' : 'desactivado'}.`);
+                loadRealData(); // Recargar lista y mapa
+            } catch (error) {
+                console.error("Error al cambiar estado:", error);
+                showNotification('danger', 'Error', 'No se pudo actualizar el estado del cobrador.');
+            }
         }
         
         async function loadRealData() {
@@ -2853,23 +2883,48 @@
             }
         }
         
-        function initializeMaps() {
+        async function initializeMaps() {
             // Mapa de dashboard de administrador
             if (document.getElementById('collectorMap')) {
+                if (map) map.remove(); // Limpiar mapa anterior
                 map = L.map('collectorMap').setView([14.0723, -87.1921], 13);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 }).addTo(map);
-                // Nota: Los mapas reales se implementarán en una futura versión
-                // Por ahora, el mapa se muestra vacío o con un marcador fijo
+                
+                // Cargar cobradores activos desde Firestore
+                const collectorsSnapshot = await db.collection('collectors').where('status', '==', 'active').get();
+                collectorsSnapshot.forEach(doc => {
+                    const collector = doc.data();
+                    if (collector.location) {
+                        const marker = L.marker([collector.location.latitude, collector.location.longitude]).addTo(map);
+                        marker.bindPopup(`<b>${collector.name}</b><br>Zona: ${collector.zone}<br>Email: ${collector.email}`);
+                    }
+                });
             }
+
             // Mapa de ubicación en vivo
             if (document.getElementById('liveCollectorMap')) {
                 const liveMap = L.map('liveCollectorMap').setView([14.0723, -87.1921], 13);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 }).addTo(liveMap);
-                // Nota: Funcionalidad de ubicación en vivo requiere datos reales de GPS de cobradores
+
+                const collectorsSnapshot = await db.collection('collectors').get();
+                collectorsSnapshot.forEach(doc => {
+                    const collector = doc.data();
+                    if (collector.location) {
+                        const color = collector.status === 'active' ? 'green' : 'red';
+                        const marker = L.marker([collector.location.latitude, collector.location.longitude], {
+                            icon: L.divIcon({
+                                html: `<div style="background-color:${color}; width:20px; height:20px; border-radius:50%; border:2px solid white;"></div>`,
+                                className: '',
+                                iconSize: [20, 20]
+                            })
+                        }).addTo(liveMap);
+                        marker.bindPopup(`<b>${collector.name}</b><br>Estado: ${collector.status === 'active' ? 'Activo' : 'Inactivo'}`);
+                    }
+                });
             }
         }
         
