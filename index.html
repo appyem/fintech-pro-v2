@@ -1239,135 +1239,10 @@
             <div class="content">
                 <!-- Dashboard Administrador -->
                 <div class="page active" id="dashboard">
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-icon primary">
-                                <i class="fas fa-hand-holding-usd"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h3>$45,230</h3>
-                                <p>Total Créditos Activos</p>
-                            </div>
-                        </div>
-                        
-                        <div class="stat-card">
-                            <div class="stat-icon success">
-                                <i class="fas fa-dollar-sign"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h3>$2,840</h3>
-                                <p>Total Cobrado Hoy</p>
-                            </div>
-                        </div>
-                        
-                        <div class="stat-card">
-                            <div class="stat-icon danger">
-                                <i class="fas fa-exclamation-triangle"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h3>$5,120</h3>
-                                <p>Total en Mora</p>
-                            </div>
-                        </div>
-                        
-                        <div class="stat-card">
-                            <div class="stat-icon warning">
-                                <i class="fas fa-users"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h3>12</h3>
-                                <p>Cobradores Activos</p>
-                            </div>
-                        </div>
+                    <div class="stats-grid" id="adminStats">
+                        <!-- Se llenará con datos reales -->
                     </div>
-                    
-                    <div class="card">
-                        <div class="card-header">
-                            <h2 class="card-title">
-                                <i class="fas fa-chart-line"></i>
-                                Ingresos Diarios
-                            </h2>
-                        </div>
-                        <div class="card-body">
-                            <div class="chart-container">
-                                <canvas id="incomeChart"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="card">
-                        <div class="card-header">
-                            <h2 class="card-title">
-                                <i class="fas fa-map-marked-alt"></i>
-                                Ubicación de Cobradores
-                            </h2>
-                            <button class="btn btn-primary btn-sm" id="viewFullMap">Ver Mapa Completo</button>
-                        </div>
-                        <div class="card-body">
-                            <div class="map-container" id="collectorMap"></div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Dashboard Cobrador -->
-                <div class="page" id="collector-dashboard">
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-icon primary">
-                                <i class="fas fa-hand-holding-usd"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h3>$8,450</h3>
-                                <p>Mis Créditos Activos</p>
-                            </div>
-                        </div>
                         
-                        <div class="stat-card">
-                            <div class="stat-icon success">
-                                <i class="fas fa-dollar-sign"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h3>$560</h3>
-                                <p>Cobrado Hoy</h3>
-                            </div>
-                        </div>
-                        
-                        <div class="stat-card">
-                            <div class="stat-icon danger">
-                                <i class="fas fa-exclamation-triangle"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h3>$890</h3>
-                                <p>Clientes en Mora</p>
-                            </div>
-                        </div>
-                        
-                        <div class="stat-card">
-                            <div class="stat-icon warning">
-                                <i class="fas fa-users"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h3>24</h3>
-                                <p>Mis Clientes</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="card">
-                        <div class="card-header">
-                            <h2 class="card-title">
-                                <i class="fas fa-calendar-day"></i>
-                                Cobros del Día
-                            </h2>
-                        </div>
-                        <div class="card-body">
-                            <div class="client-list" id="dailyPaymentsList">
-                                <!-- Se llenará dinámicamente -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
                 <!-- Página de Cobradores -->
                 <div class="page" id="collectors">
                     <div class="card">
@@ -2075,146 +1950,7 @@
         let map = null;
         let markers = [];
         
-        // Datos simulados para demostración
-        const simulatedData = {
-            collectors: [
-                {
-                    id: 1,
-                    name: "Juan Pérez",
-                    email: "juan@ejemplo.com",
-                    phone: "+1234567890",
-                    zone: "Zona Norte",
-                    status: "active",
-                    location: { lat: 14.0723, lng: -87.1921 }
-                },
-                {
-                    id: 2,
-                    name: "María García",
-                    email: "maria@ejemplo.com",
-                    phone: "+1234567891",
-                    zone: "Zona Centro",
-                    status: "active",
-                    location: { lat: 14.0623, lng: -87.1821 }
-                },
-                {
-                    id: 3,
-                    name: "Carlos López",
-                    email: "carlos@ejemplo.com",
-                    phone: "+1234567892",
-                    zone: "Zona Sur",
-                    status: "inactive",
-                    location: { lat: 14.0823, lng: -87.1721 }
-                }
-            ],
-            clients: [
-                {
-                    id: 1,
-                    name: "Roberto Sánchez",
-                    phone: "+1234567893",
-                    address: "Calle Principal #123",
-                    business: "Tienda de ropa",
-                    route: "Ruta 1",
-                    references: "Pedro Gómez (vecino) - +1234567894",
-                    location: { lat: 14.0623, lng: -87.2021 },
-                    collectorId: 1
-                },
-                {
-                    id: 2,
-                    name: "Ana Martínez",
-                    phone: "+1234567895",
-                    address: "Avenida Central #456",
-                    business: "Pulpería",
-                    route: "Ruta 2",
-                    references: "Luis Fernández (cuñado) - +1234567896",
-                    location: { lat: 14.0723, lng: -87.2121 },
-                    collectorId: 1
-                },
-                {
-                    id: 3,
-                    name: "José Ramírez",
-                    phone: "+1234567897",
-                    address: "Colonia Bonita #789",
-                    business: "Carnicería",
-                    route: "Ruta 3",
-                    references: "María López (esposa) - +1234567898",
-                    location: { lat: 14.0823, lng: -87.1921 },
-                    collectorId: 2
-                }
-            ],
-            credits: [
-                {
-                    id: 1,
-                    clientId: 1,
-                    collectorId: 1,
-                    amount: 1000,
-                    interest: 20,
-                    total: 1200,
-                    term: 30,
-                    paymentFrequency: "daily",
-                    paymentAmount: 40,
-                    startDate: "2023-01-01",
-                    status: "active",
-                    paymentsMade: 15,
-                    paymentsPending: 15
-                },
-                {
-                    id: 2,
-                    clientId: 2,
-                    collectorId: 1,
-                    amount: 1500,
-                    interest: 20,
-                    total: 1800,
-                    term: 45,
-                    paymentFrequency: "daily",
-                    paymentAmount: 40,
-                    startDate: "2023-01-05",
-                    status: "active",
-                    paymentsMade: 20,
-                    paymentsPending: 25
-                },
-                {
-                    id: 3,
-                    clientId: 3,
-                    collectorId: 2,
-                    amount: 800,
-                    interest: 25,
-                    total: 1000,
-                    term: 20,
-                    paymentFrequency: "daily",
-                    paymentAmount: 50,
-                    startDate: "2023-01-10",
-                    status: "overdue",
-                    paymentsMade: 5,
-                    paymentsPending: 15
-                }
-            ],
-            payments: [
-                {
-                    id: 1,
-                    creditId: 1,
-                    amount: 40,
-                    date: "2023-01-15",
-                    type: "full",
-                    notes: "Pago recibido en tienda"
-                },
-                {
-                    id: 2,
-                    creditId: 2,
-                    amount: 40,
-                    date: "2023-01-15",
-                    type: "full",
-                    notes: "Pago recibido en domicilio"
-                },
-                {
-                    id: 3,
-                    creditId: 3,
-                    amount: 25,
-                    date: "2023-01-14",
-                    type: "partial",
-                    notes: "Abono parcial"
-                }
-            ]
-        };
+       
         
         // Inicialización de la aplicación
         document.addEventListener('DOMContentLoaded', function() {
@@ -2459,6 +2195,73 @@
         }
 
 
+        async function loadAdminStats() {
+            if (currentUserRole !== 'admin' || !document.getElementById('adminStats')) return;
+
+            try {
+                const creditsSnapshot = await db.collection('credits').get();
+                const clientsSnapshot = await db.collection('clients').get();
+                const collectorsSnapshot = await db.collection('collectors').where('status', '==', 'active').get();
+
+                let totalActiveCredits = 0;
+                let totalOverdue = 0;
+                let totalAmount = 0;
+                let totalCollectedToday = 0; // Esto requeriría pagos con timestamp
+
+                creditsSnapshot.forEach(doc => {
+                    const credit = doc.data();
+                    if (credit.status === 'active') totalActiveCredits++;
+                    if (credit.status === 'overdue') {
+                        totalOverdue++;
+                        totalAmount += credit.total;
+                    }
+                });
+
+                const statsHTML = `
+                    <div class="stat-card">
+                        <div class="stat-icon primary">
+                            <i class="fas fa-hand-holding-usd"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>$${totalAmount.toLocaleString()}</h3>
+                            <p>Total en Mora</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon warning">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>${collectorsSnapshot.size}</h3>
+                            <p>Cobradores Activos</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon danger">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>${totalOverdue}</h3>
+                            <p>Clientes en Mora</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon success">
+                            <i class="fas fa-dollar-sign"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>$${totalCollectedToday.toLocaleString()}</h3>
+                            <p>Total Cobrado Hoy</p>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('adminStats').innerHTML = statsHTML;
+            } catch (error) {
+                console.error("Error al cargar estadísticas:", error);
+                document.getElementById('adminStats').innerHTML = '<div class="alert alert-danger">Error al cargar estadísticas</div>';
+            }
+        }
+
         async function toggleCollectorStatus(collectorId, currentStatus) {
             if (!confirm(`¿Está seguro de que desea ${currentStatus === 'active' ? 'desactivar' : 'activar'} este cobrador?`)) {
                 return;
@@ -2661,6 +2464,8 @@
                         `;
                         myCreditsList.appendChild(creditCard);
                     });
+                   if (currentUserRole === 'admin') {
+                    loadAdminStats();
                 }
 
                 // === Clientes en mora (admin o cobrador) ===
@@ -2766,121 +2571,15 @@
         }
         
         function initializeCharts() {
-            // Destruir gráfico existente si ya existe
-            if (incomeChart) {
-                incomeChart.destroy();
-            }
-            if (document.getElementById('incomeChart')) {
-                const ctx = document.getElementById('incomeChart').getContext('2d');
-                incomeChart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
-                        datasets: [{
-                            label: 'Ingresos',
-                            data: [2100, 2400, 1800, 2900, 3200, 2800, 2400],
-                            backgroundColor: 'rgba(26, 115, 232, 0.1)',
-                            borderColor: '#1a73e8',
-                            borderWidth: 2,
-                            tension: 0.4
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: { callback: v => '$' + v }
-                            }
-                        }
-                    }
-                });
-            }
-
-            // === Period Chart ===
-            if (periodChart) periodChart.destroy();
-            if (document.getElementById('periodChart')) {
-                const ctx = document.getElementById('periodChart').getContext('2d');
-                periodChart = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
-                        datasets: [{
-                            label: 'Ingresos',
-                            data: [42000, 48000, 51000, 46000, 52000, 58000],
-                            backgroundColor: 'rgba(26, 115, 232, 0.7)',
-                            borderColor: '#1a73e8',
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: { callback: v => '$' + v }
-                            }
-                        }
-                    }
-                });
-            }
-
-            // === Collector Chart ===
-            if (collectorChart) collectorChart.destroy();
-            if (document.getElementById('collectorChart')) {
-                const ctx = document.getElementById('collectorChart').getContext('2d');
-                collectorChart = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['Juan Pérez', 'María García', 'Carlos López', 'Otros'],
-                        datasets: [{
-                            data: [30, 25, 20, 25],
-                            backgroundColor: ['#1a73e8', '#34a853', '#fbbc05', '#ea4335'],
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { position: 'bottom' } }
-                    }
-                });
-            }
-
-            // === My Report Chart ===
-            if (myReportChart) myReportChart.destroy();
-            if (document.getElementById('myReportChart')) {
-                const ctx = document.getElementById('myReportChart').getContext('2d');
-                myReportChart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'],
-                        datasets: [{
-                            label: 'Cobros',
-                            data: [2800, 3200, 3100, 3350],
-                            backgroundColor: 'rgba(52, 168, 83, 0.1)',
-                            borderColor: '#34a853',
-                            borderWidth: 2,
-                            tension: 0.4
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: { callback: v => '$' + v }
-                            }
-                        }
-                    }
-                });
-            }
+            // Por ahora, no mostramos gráficos reales en el dashboard del admin
+            // Los implementaremos en la Fase de Reportes
+            const chartContainers = ['incomeChart', 'periodChart', 'collectorChart', 'myReportChart'];
+            chartContainers.forEach(id => {
+                const ctx = document.getElementById(id);
+                if (ctx) {
+                    ctx.innerHTML = '<div class="alert alert-info">Reportes reales en desarrollo</div>';
+                }
+            });
         }
         
         async function initializeMaps() {
