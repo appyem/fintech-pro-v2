@@ -2118,56 +2118,41 @@
                 document.getElementById('adminMenu').style.display = 'block';
                 document.getElementById('collectorMenu').style.display = 'none';
                 
-                // Configurar navegación inferior para administrador
+                // Configurar navegación inferior para admin
                 const bottomNavItems = document.getElementById('bottomNavItems');
-                bottomNavItems.innerHTML = `
-                    <a href="#" class="bottom-nav-item active" data-page="dashboard">
-                        <i class="fas fa-tachometer-alt"></i>
-                        <span>Dashboard</span>
-                    </a>
-                    <a href="#" class="bottom-nav-item" data-page="collectors">
-                        <i class="fas fa-users"></i>
-                        <span>Cobradores</span>
-                    </a>
-                    <a href="#" class="bottom-nav-item" data-page="credits">
-                        <i class="fas fa-hand-holding-usd"></i>
-                        <span>Créditos</span>
-                    </a>
-                    <a href="#" class="bottom-nav-item" data-page="overdue-clients">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <span>Mora</span>
-                    </a>
-                `;
+                if (bottomNavItems) {
+                    bottomNavItems.innerHTML = `
+                        <a href="#" class="bottom-nav-item active" data-page="dashboard"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></a>
+                        <a href="#" class="bottom-nav-item" data-page="collectors"><i class="fas fa-users"></i><span>Cobradores</span></a>
+                        <a href="#" class="bottom-nav-item" data-page="credits"><i class="fas fa-hand-holding-usd"></i><span>Créditos</span></a>
+                        <a href="#" class="bottom-nav-item" data-page="overdue-clients"><i class="fas fa-exclamation-triangle"></i><span>Mora</span></a>
+                    `;
+                }
                 
-                // Cargar página de dashboard de administrador
-                navigateToPage('dashboard');
+                // **NO llamar navigateToPage aquí directamente**
+                // Esperar un ciclo de renderizado
+                setTimeout(() => {
+                    navigateToPage('dashboard');
+                }, 100);
+                
             } else {
                 document.getElementById('adminMenu').style.display = 'none';
                 document.getElementById('collectorMenu').style.display = 'block';
                 
                 // Configurar navegación inferior para cobrador
                 const bottomNavItems = document.getElementById('bottomNavItems');
-                bottomNavItems.innerHTML = `
-                    <a href="#" class="bottom-nav-item active" data-page="collector-dashboard">
-                        <i class="fas fa-tachometer-alt"></i>
-                        <span>Dashboard</span>
-                    </a>
-                    <a href="#" class="bottom-nav-item" data-page="clients">
-                        <i class="fas fa-users"></i>
-                        <span>Clientes</span>
-                    </a>
-                    <a href="#" class="bottom-nav-item" data-page="my-credits">
-                        <i class="fas fa-hand-holding-usd"></i>
-                        <span>Créditos</span>
-                    </a>
-                    <a href="#" class="bottom-nav-item" data-page="daily-payments">
-                        <i class="fas fa-calendar-day"></i>
-                        <span>Cobros</span>
-                    </a>
-                `;
+                if (bottomNavItems) {
+                    bottomNavItems.innerHTML = `
+                        <a href="#" class="bottom-nav-item active" data-page="collector-dashboard"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></a>
+                        <a href="#" class="bottom-nav-item" data-page="clients"><i class="fas fa-users"></i><span>Clientes</span></a>
+                        <a href="#" class="bottom-nav-item" data-page="my-credits"><i class="fas fa-hand-holding-usd"></i><span>Créditos</span></a>
+                        <a href="#" class="bottom-nav-item" data-page="daily-payments"><i class="fas fa-calendar-day"></i><span>Cobros</span></a>
+                    `;
+                }
                 
-                // Cargar página de dashboard de cobrador
-                navigateToPage('collector-dashboard');
+                setTimeout(() => {
+                    navigateToPage('collector-dashboard');
+                }, 100);
             }
             
             // Configurar eventos para navegación inferior
