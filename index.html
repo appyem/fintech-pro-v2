@@ -2219,14 +2219,33 @@
         // Inicialización de la aplicación
         document.addEventListener('DOMContentLoaded', function() {
             // Verificar si hay un usuario autenticado
-            auth.onAuthStateChanged(function(user) {
+            auth.onAuthStateChanged(async function(user) {
                 if (user) {
-                    // Usuario autenticado
-                    currentUser = user;
-                    showApp();
-                    initializeApp();
+                    try {
+                        // Verificar si existe el documento de usuario en Firestore
+                        const userDoc = await db.collection('users').doc(user.uid).get();
+                        if (userDoc.exists) {
+                            currentUser = {
+                                uid: user.uid,
+                                email: user.email,
+                                displayName: user.email.split('@')[0]
+                            };
+                            currentUserRole = userDoc.data().role;
+                            showApp();
+                            initializeApp();
+                        } else {
+                            // No tiene rol asignado: cerrar sesión
+                            await auth.signOut();
+                            showNotification('warning', 'Sesión inválida', 'Tu cuenta no está configurada correctamente. Por favor, contacta al administrador.');
+                            showAuth();
+                        }
+                    } catch (error) {
+                        console.error("Error al verificar usuario:", error);
+                        await auth.signOut();
+                        showNotification('danger', 'Error', 'No se pudo verificar tu sesión. Intenta iniciar sesión nuevamente.');
+                        showAuth();
+                    }
                 } else {
-                    // No hay usuario autenticado
                     showAuth();
                 }
             });
