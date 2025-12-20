@@ -2062,6 +2062,12 @@
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
+
+        // 🔒 Desactivar la persistencia de la sesión: al cerrar la pestaña, se pierde la autenticación
+        auth.setPersistence(firebase.auth.Auth.Persistence.NONE)
+        .catch(function(error) {
+            console.error("Error al establecer persistencia NONE:", error);
+        });
         
         // Variables globales
 
