@@ -2406,65 +2406,65 @@
                     });
                 }
 
-                // === Cargar mis créditos (solo para cobrador) ===
+                 // === Cargar mis créditos (solo para cobrador) ===
                 if (currentUserRole === 'collector' && document.getElementById('myCreditsList')) {
                     const myCreditsList = document.getElementById('myCreditsList');
                     myCreditsList.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-
                     const creditsSnapshot = await db.collection('credits').where('collectorId', '==', uid).get();
                     const clientsMap = new Map();
                     const clientsSnapshot = await db.collection('clients').get();
                     clientsSnapshot.forEach(doc => clientsMap.set(doc.id, doc.data()));
-
                     myCreditsList.innerHTML = '';
                     if (creditsSnapshot.empty) {
                         myCreditsList.innerHTML = '<div class="empty-state"><i class="fas fa-hand-holding-usd"></i><h3>No hay créditos</h3><p>Aún no has creado créditos.</p></div>';
-                        return;
+                        // No usar return aquí porque hay más código después
+                    } else {
+                        creditsSnapshot.forEach(doc => {
+                            const credit = doc.data();
+                            const client = clientsMap.get(credit.clientId) || {};
+                            const lat = client.location?.latitude || 14.07;
+                            const lng = client.location?.longitude || -87.19;
+                            const totalPayments = (credit.paymentsMade || 0) + (credit.paymentsPending || 0);
+                            const progressPercentage = totalPayments > 0 ? ((credit.paymentsMade || 0) / totalPayments) * 100 : 0;
+                            const creditCard = document.createElement('div');
+                            creditCard.className = 'credit-card';
+                            creditCard.innerHTML = `
+                                <div class="credit-header">
+                                    <div class="credit-amount">$${credit.total || 0}</div>
+                                    <span class="status-badge ${credit.status}">${getStatusText(credit.status)}</span>
+                                </div>
+                                <div class="credit-details">
+                                    <div class="credit-detail">
+                                        <div class="credit-detail-label">Cliente</div>
+                                        <div class="credit-detail-value">${client.name || 'N/A'}</div>
+                                    </div>
+                                    <div class="credit-detail">
+                                        <div class="credit-detail-label">Cuota</div>
+                                        <div class="credit-detail-value">$${credit.paymentAmount || 0}</div>
+                                    </div>
+                                    <div class="credit-detail">
+                                        <div class="credit-detail-label">Pagos</div>
+                                        <div class="credit-detail-value">${credit.paymentsMade || 0}/${totalPayments}</div>
+                                    </div>
+                                </div>
+                                <div class="payment-progress">
+                                    <div class="payment-progress-bar" style="width: ${progressPercentage}%"></div>
+                                </div>
+                                <div class="payment-actions">
+                                    <button class="btn btn-sm btn-primary" onclick="openPaymentModal('${doc.id}')">Registrar Pago</button>
+                                    <button class="btn btn-sm btn-warning" onclick="openRenewalModal('${doc.id}')">Renovar</button>
+                                    <button class="btn btn-sm whatsapp-btn" onclick="openWhatsApp('${client.phone || ''}')">
+                                        <i class="fab fa-whatsapp"></i>
+                                    </button>
+                                </div>
+                            `;
+                            myCreditsList.appendChild(creditCard);
+                        });
                     }
+                }
 
-                    creditsSnapshot.forEach(doc => {
-                        const credit = doc.data();
-                        const client = clientsMap.get(credit.clientId) || {};
-                        const lat = client.location?.latitude || 14.07;
-                        const lng = client.location?.longitude || -87.19;
-                        const totalPayments = (credit.paymentsMade || 0) + (credit.paymentsPending || 0);
-                        const progressPercentage = totalPayments > 0 ? ((credit.paymentsMade || 0) / totalPayments) * 100 : 0;
-
-                        const creditCard = document.createElement('div');
-                        creditCard.className = 'credit-card';
-                        creditCard.innerHTML = `
-                            <div class="credit-header">
-                                <div class="credit-amount">$${credit.total || 0}</div>
-                                <span class="status-badge ${credit.status}">${getStatusText(credit.status)}</span>
-                            </div>
-                            <div class="credit-details">
-                                <div class="credit-detail">
-                                    <div class="credit-detail-label">Cliente</div>
-                                    <div class="credit-detail-value">${client.name || 'N/A'}</div>
-                                </div>
-                                <div class="credit-detail">
-                                    <div class="credit-detail-label">Cuota</div>
-                                    <div class="credit-detail-value">$${credit.paymentAmount || 0}</div>
-                                </div>
-                                <div class="credit-detail">
-                                    <div class="credit-detail-label">Pagos</div>
-                                    <div class="credit-detail-value">${credit.paymentsMade || 0}/${totalPayments}</div>
-                                </div>
-                            </div>
-                            <div class="payment-progress">
-                                <div class="payment-progress-bar" style="width: ${progressPercentage}%"></div>
-                            </div>
-                            <div class="payment-actions">
-                                <button class="btn btn-sm btn-primary" onclick="openPaymentModal('${doc.id}')">Registrar Pago</button>
-                                <button class="btn btn-sm btn-warning" onclick="openRenewalModal('${doc.id}')">Renovar</button>
-                                <button class="btn btn-sm whatsapp-btn" onclick="openWhatsApp('${client.phone || ''}')">
-                                    <i class="fab fa-whatsapp"></i>
-                                </button>
-                            </div>
-                        `;
-                        myCreditsList.appendChild(creditCard);
-                    });
-                   if (currentUserRole === 'admin') {
+                // === Cargar estadísticas del admin (solo para admin) ===
+                if (currentUserRole === 'admin') {
                     loadAdminStats();
                 }
 
