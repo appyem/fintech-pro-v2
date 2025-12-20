@@ -2499,7 +2499,7 @@
                             <td>${collector.zone || 'N/A'}</td>
                             <td><span class="status-badge ${collector.status}">${collector.status === 'active' ? 'Activo' : 'Inactivo'}</span></td>
                             <td>
-                                <button class="btn btn-sm btn-primary" onclick="editCollector('${doc.id}')">Editar</button>
+                                <button class="btn btn-sm btn-outline" disabled>Editar (próximamente)</button>
                                 <button class="btn btn-sm btn-danger" onclick="toggleCollectorStatus('${doc.id}', '${collector.status}')">
                                     ${collector.status === 'active' ? 'Desactivar' : 'Activar'}
                                 </button>
@@ -2596,7 +2596,7 @@
                             <td>${credit.term || 0} días</td>
                             <td><span class="status-badge ${credit.status}">${getStatusText(credit.status)}</span></td>
                             <td>
-                                <button class="btn btn-sm btn-primary" onclick="viewCreditDetails('${doc.id}')">Ver Detalles</button>
+                                <button class="btn btn-sm btn-outline" disabled>Detalles (próximamente)</button>
                             </td>
                         `;
                         creditsTableBody.appendChild(row);
@@ -2884,27 +2884,32 @@
         }
         
         async function initializeMaps() {
-            // Mapa de dashboard de administrador
+            // === Mapa del dashboard (collectorMap) ===
             if (document.getElementById('collectorMap')) {
-                if (map) map.remove(); // Limpiar mapa anterior
-                map = L.map('collectorMap').setView([14.0723, -87.1921], 13);
+                const mapContainer = document.getElementById('collectorMap');
+                mapContainer.innerHTML = ''; // Limpia el contenedor
+                
+                const map = L.map('collectorMap').setView([14.0723, -87.1921], 13);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 }).addTo(map);
-                
-                // Cargar cobradores activos desde Firestore
+
                 const collectorsSnapshot = await db.collection('collectors').where('status', '==', 'active').get();
                 collectorsSnapshot.forEach(doc => {
                     const collector = doc.data();
                     if (collector.location) {
-                        const marker = L.marker([collector.location.latitude, collector.location.longitude]).addTo(map);
-                        marker.bindPopup(`<b>${collector.name}</b><br>Zona: ${collector.zone}<br>Email: ${collector.email}`);
+                        L.marker([collector.location.latitude, collector.location.longitude])
+                            .addTo(map)
+                            .bindPopup(`<b>${collector.name}</b><br>Zona: ${collector.zone}<br>Email: ${collector.email}`);
                     }
                 });
             }
 
-            // Mapa de ubicación en vivo
+            // === Mapa en vivo (liveCollectorMap) ===
             if (document.getElementById('liveCollectorMap')) {
+                const liveMapContainer = document.getElementById('liveCollectorMap');
+                liveMapContainer.innerHTML = ''; // Limpia el contenedor
+                
                 const liveMap = L.map('liveCollectorMap').setView([14.0723, -87.1921], 13);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
