@@ -2307,6 +2307,23 @@
             document.getElementById('closeRenewalModal')?.addEventListener('click', function() {
                 document.getElementById('renewalModal').classList.remove('open');
             });
+
+            // Editar cliente
+            document.getElementById('closeEditClientModal')?.addEventListener('click', function() {
+                document.getElementById('editClientModal').classList.remove('open');
+            });
+            document.getElementById('cancelEditClient')?.addEventListener('click', function() {
+                document.getElementById('editClientModal').classList.remove('open');
+            });
+            document.getElementById('editClientForm')?.addEventListener('submit', handleEditClient);
+
+            // Detalles de crédito
+            document.getElementById('closeCreditDetailsModal')?.addEventListener('click', function() {
+                document.getElementById('creditDetailsModal').classList.remove('open');
+            });
+            document.getElementById('closeDetailsBtn')?.addEventListener('click', function() {
+                document.getElementById('creditDetailsModal').classList.remove('open');
+            });
             
             // Event listeners para formularios
             document.getElementById('addCollectorForm')?.addEventListener('submit', handleAddCollector);
@@ -2937,8 +2954,7 @@
                     document.querySelector('#collector-dashboard .stat-card:nth-child(4) .stat-info h3').textContent = myClientsCount;
                 }
 
-                // Inicializar gráficos (mantenemos los datos simulados por ahora, o los dejamos vacíos)
-                loadDashboardStats();
+                
             } catch (error) {
                 console.error("Error al cargar estadísticas del dashboard:", error);
                 // En caso de error, dejar los valores por defecto o mostrar "N/A"
@@ -3521,6 +3537,247 @@
                     return status;
             }
         }
+
+        // Editar cobrador (placeholder)
+        function editCollector(collectorId) {
+            showNotification('info', 'Función no disponible', 'La edición de cobradores está limitada por seguridad. Contacte al administrador si necesita hacer cambios.');
+        }
+
+        // Eliminar cobrador
+        async function deleteCollector(collectorId) {
+            if (!confirm('¿Está seguro de eliminar este cobrador? Esta acción también eliminará su cuenta de usuario y todos sus datos.')) {
+                return;
+            }
+            try {
+                // 1. Obtener el documento del cobrador para obtener userId
+                const collectorDoc = await db.collection('collectors').doc(collectorId).get();
+                if (!collectorDoc.exists) {
+                    throw new Error('Cobrador no encontrado');
+                }
+                const { userId } = collectorDoc.data();
+
+                // 2. Eliminar el cobrador de /collectors
+                await db.collection('collectors').doc(collectorId).delete();
+
+                // Nota: La cuenta de Authentication no se elimina desde el cliente por seguridad.
+                // Solo se eliminan los datos en Firestore.
+                console.log('Cuenta de Authentication no eliminada (requiere Cloud Function)');
+
+                // 4. Eliminar /users/{userId}
+                await db.collection('users').doc(userId).delete();
+
+                // 5. Eliminar sus clientes y créditos (opcional: reasignar)
+                const clientsSnapshot = await db.collection('clients').where('collectorId', '==', userId).get();
+                const deleteClientsPromises = [];
+                clientsSnapshot.forEach(doc => {
+                    deleteClientsPromises.push(db.collection('clients').doc(doc.id).delete());
+                });
+                await Promise.all(deleteClientsPromises);
+
+                const creditsSnapshot = await db.collection('credits').where('collectorId', '==', userId).get();
+                const deleteCreditsPromises = [];
+                creditsSnapshot.forEach(doc => {
+                    deleteCreditsPromises.push(db.collection('credits').doc(doc.id).delete());
+                });
+                await Promise.all(deleteCreditsPromises);
+
+                showNotification('success', 'Cobrador eliminado', 'El cobrador y todos sus datos han sido eliminados.');
+                loadRealData();
+            } catch (error) {
+                console.error("Error al eliminar cobrador:", error);
+                showNotification('danger', 'Error', 'No se pudo eliminar el cobrador. Intente nuevamente.');
+            }
+        }
+
+        // Editar cliente (placeholder)
+        function editClient(clientId) {
+            showNotification('info', 'Función en desarrollo', 'La edición de clientes estará disponible pronto.');
+        }
+
+        // Eliminar cliente
+        async function deleteClient(clientId) {
+            if (!confirm('¿Está seguro de eliminar este cliente? Se perderán todos sus créditos asociados.')) {
+                return;
+            }
+            try {
+                // Eliminar cliente
+                await db.collection('clients').doc(clientId).delete();
+
+                // Eliminar créditos asociados
+                const creditsSnapshot = await db.collection('credits').where('clientId', '==', clientId).get();
+                const deleteCreditsPromises = [];
+                creditsSnapshot.forEach(doc => {
+                    deleteCreditsPromises.push(db.collection('credits').doc(doc.id).delete());
+                });
+                await Promise.all(deleteCreditsPromises);
+
+                showNotification('success', 'Cliente eliminado', 'El cliente y sus créditos han sido eliminados.');
+                loadRealData();
+            } catch (error) {
+                console.error("Error al eliminar cliente:", error);
+                showNotification('danger', 'Error', 'No se pudo eliminar el cliente. Intente nuevamente.');
+            }
+        }
+
+        // Ver detalles de crédito
+        function viewCreditDetails(creditId) {
+            showNotification('info', 'Función en desarrollo', 'Los detalles del crédito se mostrarán en una ventana emergente.');
+            // Implementación futura: modal con historial de pagos, cliente, etc.
+        }
+
+
+        // === EDITAR CLIENTE ===
+        async function editClient(clientId) {
+            try {
+                const clientDoc = await db.collection('clients').doc(clientId).get();
+                if (!clientDoc.exists) {
+                    showNotification('danger', 'Error', 'Cliente no encontrado.');
+                    return;
+                }
+                const client = clientDoc.data();
+                // Rellenar el formulario
+                document.getElementById('editClientId').value = clientId;
+                document.getElementById('editClientName').value = client.name || '';
+                document.getElementById('editClientPhone').value = client.phone || '';
+                document.getElementById('editClientAddress').value = client.address || '';
+                document.getElementById('editClientBusiness').value = client.business || '';
+                document.getElementById('editClientRoute').value = client.route || '';
+                document.getElementById('editClientReferences').value = client.references || '';
+                // Mostrar modal
+                document.getElementById('editClientModal').classList.add('open');
+            } catch (error) {
+                console.error("Error al cargar cliente:", error);
+                showNotification('danger', 'Error', 'No se pudo cargar el cliente.');
+            }
+        }
+
+        // === GUARDAR EDICIÓN DE CLIENTE ===
+        async function handleEditClient(e) {
+            e.preventDefault();
+            const clientId = document.getElementById('editClientId').value;
+            const name = document.getElementById('editClientName').value;
+            const phone = document.getElementById('editClientPhone').value;
+            const address = document.getElementById('editClientAddress').value;
+            const business = document.getElementById('editClientBusiness').value;
+            const route = document.getElementById('editClientRoute').value;
+            const references = document.getElementById('editClientReferences').value;
+
+            try {
+                await db.collection('clients').doc(clientId).update({
+                    name: name,
+                    phone: phone,
+                    address: address,
+                    business: business,
+                    route: route,
+                    references: references,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                showNotification('success', 'Cliente actualizado', 'Los cambios se han guardado correctamente.');
+                document.getElementById('editClientModal').classList.remove('open');
+                loadRealData(); // Refrescar lista
+            } catch (error) {
+                console.error("Error al actualizar cliente:", error);
+                showNotification('danger', 'Error', 'No se pudo guardar los cambios.');
+            }
+        }
+
+        // === VER DETALLES DEL CRÉDITO ===
+        async function viewCreditDetails(creditId) {
+            try {
+                const creditDoc = await db.collection('credits').doc(creditId).get();
+                if (!creditDoc.exists) {
+                    showNotification('danger', 'Error', 'Crédito no encontrado.');
+                    return;
+                }
+                const credit = creditDoc.data();
+
+                // Cargar cliente
+                let clientName = 'N/A';
+                if (credit.clientId) {
+                    const clientDoc = await db.collection('clients').doc(credit.clientId).get();
+                    if (clientDoc.exists) {
+                        clientName = clientDoc.data().name || 'N/A';
+                    }
+                }
+
+                // Cargar cobrador (solo si es admin)
+                let collectorName = 'N/A';
+                if (currentUserRole === 'admin' && credit.collectorId) {
+                    const collDoc = await db.collection('collectors').doc(credit.collectorId).get();
+                    if (collDoc.exists) {
+                        collectorName = collDoc.data().name || 'N/A';
+                    }
+                }
+
+                // Formatear estado
+                const statusText = getStatusText(credit.status);
+
+                // Calcular pagos
+                const totalPayments = (credit.paymentsMade || 0) + (credit.paymentsPending || 0);
+                const progressPercentage = totalPayments > 0 ? ((credit.paymentsMade || 0) / totalPayments) * 100 : 0;
+
+                // Renderizar
+                document.getElementById('creditDetailsContent').innerHTML = `
+                    <div class="card">
+                        <div class="card-body">
+                            <h4>Información del Crédito</h4>
+                            <p><strong>ID:</strong> ${creditId}</p>
+                            <p><strong>Cliente:</strong> ${clientName}</p>
+                            ${currentUserRole === 'admin' ? `<p><strong>Cobrador:</strong> ${collectorName}</p>` : ''}
+                            <p><strong>Monto prestado:</strong> $${credit.amount || 0}</p>
+                            <p><strong>Interés:</strong> ${credit.interest || 0}%</p>
+                            <p><strong>Total a pagar:</strong> $${credit.total || 0}</p>
+                            <p><strong>Plazo:</strong> ${credit.term || 0} días</p>
+                            <p><strong>Frecuencia:</strong> ${credit.paymentFrequency || 'Diario'}</p>
+                            <p><strong>Cuota:</strong> $${credit.paymentAmount || 0}</p>
+                            <p><strong>Estado:</strong> <span class="status-badge ${credit.status}">${statusText}</span></p>
+                            <p><strong>Pagos realizados:</strong> ${credit.paymentsMade || 0} de ${totalPayments}</p>
+                            <div class="payment-progress" style="margin: 10px 0;">
+                                <div class="payment-progress-bar" style="width: ${progressPercentage}%"></div>
+                            </div>
+                            <p><strong>Notas:</strong> ${credit.notes || 'Ninguna'}</p>
+                        </div>
+                    </div>
+                    <div class="card" style="margin-top: 15px;">
+                        <div class="card-header">
+                            <h4>Historial de Pagos</h4>
+                        </div>
+                        <div class="card-body" id="paymentsHistory">
+                            <div class="loading"><div class="spinner"></div></div>
+                        </div>
+                    </div>
+                `;
+
+                // Cargar pagos
+                const paymentsRef = db.collection('payments').where('creditId', '==', creditId).orderBy('date', 'desc');
+                const paymentsSnap = await paymentsRef.get();
+                const paymentsDiv = document.getElementById('paymentsHistory');
+                if (paymentsSnap.empty) {
+                    paymentsDiv.innerHTML = '<p class="text-center" style="color:#666;">No hay pagos registrados.</p>';
+                } else {
+                    let html = '<ul style="list-style:none; padding:0;">';
+                    paymentsSnap.forEach(doc => {
+                        const p = doc.data();
+                        const date = p.date?.toDate()?.toLocaleDateString() || 'N/A';
+                        const type = p.type === 'full' ? 'Completo' : 'Parcial';
+                        html += `
+                            <li style="padding:8px 0; border-bottom:1px solid #eee;">
+                                <strong>$${p.amount || 0}</strong> - ${date} (${type})
+                                ${p.notes ? `<br><small>${p.notes}</small>` : ''}
+                            </li>
+                        `;
+                    });
+                    html += '</ul>';
+                    paymentsDiv.innerHTML = html;
+                }
+
+                // Mostrar modal
+                document.getElementById('creditDetailsModal').classList.add('open');
+            } catch (error) {
+                console.error("Error al cargar detalles del crédito:", error);
+                showNotification('danger', 'Error', 'No se pudieron cargar los detalles.');
+            }
+        }
         
         function showNotification(type, title, message) {
             const notificationContainer = document.getElementById('notificationContainer');
@@ -3582,5 +3839,74 @@
             });
         }
     </script>
+        <!-- Modal para editar cliente -->
+        <div class="modal" id="editClientModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">Editar Cliente</h3>
+                    <button class="modal-close" id="closeEditClientModal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="editClientForm">
+                        <input type="hidden" id="editClientId">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="editClientName">Nombre Completo</label>
+                                <input type="text" id="editClientName" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="editClientPhone">Teléfono</label>
+                                <input type="tel" id="editClientPhone" class="form-control" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="editClientAddress">Dirección</label>
+                            <input type="text" id="editClientAddress" class="form-control" required>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="editClientBusiness">Tipo de Negocio</label>
+                                <input type="text" id="editClientBusiness" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="editClientRoute">Ruta/Zona</label>
+                                <input type="text" id="editClientRoute" class="form-control">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="editClientReferences">Referencias</label>
+                            <textarea id="editClientReferences" class="form-control" rows="3"></textarea>
+                        </div>
+                        <div class="btn-group">
+                            <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                            <button type="button" class="btn btn-outline" id="cancelEditClient">Cancelar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal para ver detalles del crédito -->
+        <div class="modal" id="creditDetailsModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">Detalles del Crédito</h3>
+                    <button class="modal-close" id="closeCreditDetailsModal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div id="creditDetailsContent">
+                        <!-- Se llenará dinámicamente -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" id="closeDetailsBtn">Cerrar</button>
+                </div>
+            </div>
+        </div>
+
 </body>
 </html>
