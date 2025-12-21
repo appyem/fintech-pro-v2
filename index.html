@@ -2878,14 +2878,21 @@
         
         async function loadDashboardStats() {
             const uid = currentUser.uid;
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+            const todayEnd = new Date();
+            todayEnd.setHours(23, 59, 59, 999);
+
             try {
+                // === ADMIN DASHBOARD ===
                 if (currentUserRole === 'admin') {
                     const activeCreditsSnap = await db.collection('credits').where('status', '==', 'active').get();
                     const totalActiveCredits = activeCreditsSnap.docs.reduce((sum, doc) => sum + (doc.data().total || 0), 0);
 
-                    const paymentsTodaySnap = await db.collection('payments').where('date', '>=', firebase.firestore.Timestamp.fromDate(today)).get();
+                    const paymentsTodaySnap = await db.collection('payments')
+                        .where('date', '>=', firebase.firestore.Timestamp.fromDate(todayStart))
+                        .where('date', '<=', firebase.firestore.Timestamp.fromDate(todayEnd))
+                        .get();
                     const totalCollectedToday = paymentsTodaySnap.docs.reduce((sum, doc) => sum + (doc.data().amount || 0), 0);
 
                     const overdueCreditsSnap = await db.collection('credits').where('status', '==', 'overdue').get();
@@ -2894,53 +2901,55 @@
                     const activeCollectorsSnap = await db.collection('collectors').where('status', '==', 'active').get();
                     const activeCollectorsCount = activeCollectorsSnap.size;
 
-                    // Actualizar con IDs únicos
                     document.getElementById('adminActiveCredits').textContent = '$' + formatNumber(totalActiveCredits);
                     document.getElementById('adminCollectedToday').textContent = '$' + formatNumber(totalCollectedToday);
                     document.getElementById('adminOverdueTotal').textContent = '$' + formatNumber(totalOverdue);
                     document.getElementById('adminActiveCollectors').textContent = activeCollectorsCount;
                 }
-                if (currentUserRole === 'collector') {
-                    const myActiveCreditsSnap = await db.collection('credits').where('collectorId', '==', uid).where('status', '==', 'active').get();
-                    const myTotalActiveCredits = myActiveCreditsSnap.docs.reduce((sum, doc) => sum + (doc.data().total || 0), 0);
 
-                    // 2. Cobrado hoy: obtener pagos de los créditos del cobrador
-                    let myTotalCollectedToday = 0;
+                // === COBRADOR DASHBOARD ===
+                if (currentUserRole === 'collector') {
+                    // 1. Mis créditos activos
                     const myCreditsSnap = await db.collection('credits')
                         .where('collectorId', '==', uid)
                         .get();
+                    const myActiveCredits = myCreditsSnap.docs
+                        .filter(doc => doc.data().status === 'active')
+                        .reduce((sum, doc) => sum + (doc.data().total || 0), 0);
+                    const clientCount = new Set(myCreditsSnap.docs.map(doc => doc.data().clientId)).size;
 
+                    // 2. Pagos HOY: cargar todos los pagos de mis créditos que sean de HOY
+                    let totalCollectedToday = 0;
                     const paymentPromises = [];
-                    myCreditsSnap.forEach(doc => {
+                    myCreditsSnap.docs.forEach(doc => {
                         paymentPromises.push(
                             db.collection('payments')
                                 .where('creditId', '==', doc.id)
-                                .where('date', '>=', firebase.firestore.Timestamp.fromDate(today))
+                                .where('date', '>=', firebase.firestore.Timestamp.fromDate(todayStart))
+                                .where('date', '<=', firebase.firestore.Timestamp.fromDate(todayEnd))
                                 .get()
                         );
                     });
-
-                    const paymentsSnapshots = await Promise.all(paymentPromises);
-                    paymentsSnapshots.forEach(snap => {
+                    const paymentSnapshots = await Promise.all(paymentPromises);
+                    paymentSnapshots.forEach(snap => {
                         snap.docs.forEach(doc => {
-                            myTotalCollectedToday += doc.data().amount || 0;
+                            totalCollectedToday += doc.data().amount || 0;
                         });
                     });
 
-                    const myOverdueSnap = await db.collection('credits').where('collectorId', '==', uid).where('status', '==', 'overdue').get();
-                    const myTotalOverdue = myOverdueSnap.docs.reduce((sum, doc) => sum + (doc.data().total || 0), 0);
+                    // 3. Clientes en mora
+                    const overdueCount = myCreditsSnap.docs
+                        .filter(doc => doc.data().status === 'overdue')
+                        .reduce((sum, doc) => sum + (doc.data().total || 0), 0);
 
-                    const myClientsSnap = await db.collection('clients').where('collectorId', '==', uid).get();
-                    const myClientsCount = myClientsSnap.size;
-
-                    // Actualizar con IDs únicos
-                    document.getElementById('collectorActiveCredits').textContent = '$' + formatNumber(myTotalActiveCredits);
-                    document.getElementById('collectorCollectedToday').textContent = '$' + formatNumber(myTotalCollectedToday);
-                    document.getElementById('collectorOverdueTotal').textContent = '$' + formatNumber(myTotalOverdue);
-                    document.getElementById('collectorClientCount').textContent = myClientsCount;
+                    // Actualizar UI
+                    document.getElementById('collectorActiveCredits').textContent = '$' + formatNumber(myActiveCredits);
+                    document.getElementById('collectorCollectedToday').textContent = '$' + formatNumber(totalCollectedToday);
+                    document.getElementById('collectorOverdueTotal').textContent = '$' + formatNumber(overdueCount);
+                    document.getElementById('collectorClientCount').textContent = clientCount;
                 }
             } catch (error) {
-                console.error("Error al cargar estadísticas del dashboard:", error);
+                console.error("Error definitivo en loadDashboardStats:", error);
             }
         }
 
