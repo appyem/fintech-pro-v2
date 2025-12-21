@@ -2394,6 +2394,40 @@
             document.getElementById('authContainer').style.display = 'none';
             document.getElementById('appContainer').style.display = 'block';
         }
+
+        // === FUNCION PARA LLENAR EL SELECTOR DE CLIENTES EN CREAR CRÉDITO ===
+        async function loadClientsIntoCreditSelector() {
+            const creditClient = document.getElementById('creditClient');
+            if (!creditClient) return;
+
+            const uid = currentUser.uid;
+            creditClient.innerHTML = '<option value="">Seleccionar cliente</option>';
+            
+            let clientsQuery = db.collection('clients');
+            if (currentUserRole === 'collector') {
+                clientsQuery = clientsQuery.where('collectorId', '==', uid);
+            }
+            
+            const clientsSnap = await clientsQuery.get();
+            if (clientsSnap.empty) {
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = 'No hay clientes disponibles';
+                option.disabled = true;
+                creditClient.appendChild(option);
+                return;
+            }
+
+            clientsSnap.forEach(doc => {
+                const client = doc.data();
+                if (client.name) {
+                    const option = document.createElement('option');
+                    option.value = doc.id;
+                    option.textContent = client.name;
+                    creditClient.appendChild(option);
+                }
+            });
+        }
         
         // Funciones de inicialización
         function initializeApp() {
@@ -2763,22 +2797,8 @@
                     });
                 }
 
-                // === Llenar selectores ===
-                if (document.getElementById('creditClient')) {
-                    const creditClient = document.getElementById('creditClient');
-                    creditClient.innerHTML = '<option value="">Seleccionar cliente</option>';
-                    const clientsQuery = currentUserRole === 'collector' 
-                        ? db.collection('clients').where('collectorId', '==', uid)
-                        : db.collection('clients');
-                    const clientsSnap = await clientsQuery.get();
-                    clientsSnap.forEach(doc => {
-                        const client = doc.data();
-                        const option = document.createElement('option');
-                        option.value = doc.id;
-                        option.textContent = client.name;
-                        creditClient.appendChild(option);
-                    });
-                }
+                // === Llenar selectores iniciales ===
+                loadClientsIntoCreditSelector();
 
                 // === Inicializar gráficos y mapas ===
                 initializeCharts();
@@ -3040,7 +3060,10 @@
                 document.getElementById('sidebar').classList.remove('open');
                 document.getElementById('mainContent').classList.remove('sidebar-open');
             }
-            
+            // Recargar clientes en el selector si se abre "Crear Crédito"
+            if (pageId === 'add-credit') {
+                loadClientsIntoCreditSelector();
+            }
             // Actualizar página actual
             currentPage = pageId;
         }
