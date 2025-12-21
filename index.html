@@ -2928,6 +2928,7 @@
                             paymentPromises.push(
                                 db.collection('payments')
                                     .where('creditId', '==', doc.id)
+                                    .where('collectorId', '==', uid)
                                     .where('date', '>=', firebase.firestore.Timestamp.fromDate(todayStart))
                                     .where('date', '<=', firebase.firestore.Timestamp.fromDate(todayEnd))
                                     .get()
