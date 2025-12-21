@@ -3088,7 +3088,12 @@
 
             // Cargar estadísticas reales si se abre el dashboard
             if (pageId === 'dashboard' || pageId === 'collector-dashboard') {
-                setTimeout(loadDashboardStats, 100); // Pequeño retraso para asegurar que el DOM esté listo
+                // Esperar a que el DOM se actualice completamente
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        loadDashboardStats();
+                    });
+                });
             }
 
             // Actualizar página actual
