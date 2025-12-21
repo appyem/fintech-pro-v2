@@ -2866,8 +2866,7 @@
                 // === Llenar selectores iniciales ===
                 loadClientsIntoCreditSelector();
                 
-                // === Cargar estadísticas del dashboard ===
-                loadDashboardStats();
+                
 
             } catch (error) {
                 console.error("Error al cargar datos reales:", error);
@@ -3066,6 +3065,12 @@
             if (pageId === 'add-credit') {
                 loadClientsIntoCreditSelector();
             }
+
+            // Cargar estadísticas reales si se abre el dashboard
+            if (pageId === 'dashboard' || pageId === 'collector-dashboard') {
+                setTimeout(loadDashboardStats, 100); // Pequeño retraso para asegurar que el DOM esté listo
+            }
+
             // Actualizar página actual
             currentPage = pageId;
         }
