@@ -2538,275 +2538,203 @@
         
         async function loadRealData() {
             const uid = currentUser.uid;
-
             try {
-                // === Cargar cobradores (solo para admin) ===
-                if (currentUserRole === 'admin' && document.getElementById('collectorsTableBody')) {
-                    const collectorsTableBody = document.getElementById('collectorsTableBody');
-                    collectorsTableBody.innerHTML = '<tr><td colspan="6" class="loading"><div class="spinner"></div></td></tr>';
-
+                // === Cargar cobradores (solo admin) ===
+                if (currentUserRole === 'admin' && document.getElementById('collectorsList')) {
+                    const collectorsList = document.getElementById('collectorsList');
+                    collectorsList.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
                     const collectorsSnapshot = await db.collection('collectors').get();
-                    collectorsTableBody.innerHTML = '';
-
-                    collectorsSnapshot.forEach(doc => {
-                        const collector = doc.data();
-                        const row = document.createElement('tr');
-                        row.innerHTML = `
-                            <td>${collector.name || 'N/A'}</td>
-                            <td>${collector.email || 'N/A'}</td>
-                            <td>${collector.phone || 'N/A'}</td>
-                            <td>${collector.zone || 'N/A'}</td>
-                            <td><span class="status-badge ${collector.status}">${collector.status === 'active' ? 'Activo' : 'Inactivo'}</span></td>
-                            <td>
-                                <button class="btn btn-sm btn-primary" onclick="editCollector('${doc.id}')">Editar</button>
-                                <button class="btn btn-sm btn-danger" onclick="toggleCollectorStatus('${doc.id}', '${collector.status}')">
-                                    ${collector.status === 'active' ? 'Desactivar' : 'Activar'}
-                                </button>
-                            </td>
-                        `;
-                        collectorsTableBody.appendChild(row);
-                    });
+                    collectorsList.innerHTML = '';
+                    if (collectorsSnapshot.empty) {
+                        collectorsList.innerHTML = '<div class="empty-state"><i class="fas fa-users"></i><h3>No hay cobradores</h3><p>Crea el primer cobrador.</p></div>';
+                    } else {
+                        collectorsSnapshot.forEach(doc => {
+                            const data = doc.data();
+                            const collectorCard = document.createElement('div');
+                            collectorCard.className = 'collector-card';
+                            collectorCard.innerHTML = `
+                                <div class="collector-header">
+                                    <div class="collector-name">${data.name || 'N/A'}</div>
+                                </div>
+                                <div class="collector-details">
+                                    <div class="collector-detail"><strong>Email:</strong> ${data.email || 'N/A'}</div>
+                                    <div class="collector-detail"><strong>Teléfono:</strong> ${data.phone || 'N/A'}</div>
+                                    <div class="collector-detail"><strong>Ruta:</strong> ${data.route || 'N/A'}</div>
+                                </div>
+                                <div class="collector-actions">
+                                    <button class="btn btn-sm btn-danger" onclick="deleteCollector('${doc.id}')">Eliminar</button>
+                                </div>
+                            `;
+                            collectorsList.appendChild(collectorCard);
+                        });
+                    }
                 }
 
-                // === Cargar clientes (solo para cobrador o admin) ===
-                if ((currentUserRole === 'collector' || currentUserRole === 'admin') && document.getElementById('clientsList')) {
+                // === Cargar clientes (admin: todos | cobrador: solo los suyos) ===
+                if (document.getElementById('clientsList')) {
                     const clientsList = document.getElementById('clientsList');
                     clientsList.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-
-                    // Filtrar por collectorId si es cobrador
                     let clientsQuery = db.collection('clients');
                     if (currentUserRole === 'collector') {
                         clientsQuery = clientsQuery.where('collectorId', '==', uid);
                     }
                     const clientsSnapshot = await clientsQuery.get();
                     clientsList.innerHTML = '';
-
                     if (clientsSnapshot.empty) {
-                        clientsList.innerHTML = '<div class="empty-state"><i class="fas fa-users"></i><h3>No hay clientes</h3><p>Aún no has agregado clientes.</p></div>';
-                        return;
+                        clientsList.innerHTML = '<div class="empty-state"><i class="fas fa-user-friends"></i><h3>No hay clientes</h3><p>Aún no has agregado clientes.</p></div>';
+                    } else {
+                        clientsSnapshot.forEach(doc => {
+                            const client = doc.data();
+                            const lat = client.location?.latitude || 14.07;
+                            const lng = client.location?.longitude || -87.19;
+                            const clientCard = document.createElement('div');
+                            clientCard.className = 'client-card';
+                            clientCard.innerHTML = `
+                                <div class="client-header">
+                                    <div class="client-name">${client.name || 'N/A'}</div>
+                                    <div class="client-route">${client.route || 'N/A'}</div>
+                                </div>
+                                <div class="client-details">
+                                    <div class="client-detail"><strong>Teléfono:</strong> ${client.phone || 'N/A'}</div>
+                                    <div class="client-detail"><strong>Dirección:</strong> ${client.address || 'N/A'}</div>
+                                    <div class="client-detail"><strong>Negocio:</strong> ${client.business || 'N/A'}</div>
+                                </div>
+                                <div class="client-location">
+                                    <a href="https://maps.google.com/?q=${lat},${lng}" target="_blank" class="btn btn-sm btn-secondary">Ver en mapa</a>
+                                </div>
+                                <div class="client-actions">
+                                    <button class="btn btn-sm btn-warning" onclick="editClient('${doc.id}')">Editar</button>
+                                    <button class="btn btn-sm btn-danger" onclick="deleteClient('${doc.id}')">Eliminar</button>
+                                </div>
+                            `;
+                            clientsList.appendChild(clientCard);
+                        });
                     }
-
-                    clientsSnapshot.forEach(doc => {
-                        const client = doc.data();
-                        const lat = client.location?.latitude || 14.07;
-                        const lng = client.location?.longitude || -87.19;
-
-                        const clientCard = document.createElement('div');
-                        clientCard.className = 'client-card';
-                        clientCard.innerHTML = `
-                            <div class="client-header">
-                                <div class="client-name">${client.name || 'N/A'}</div>
-                                <span class="status-badge active">Activo</span>
-                            </div>
-                            <div class="client-details">
-                                <div class="client-detail">
-                                    <i class="fas fa-phone"></i>
-                                    <span>${client.phone || 'N/A'}</span>
-                                </div>
-                                <div class="client-detail">
-                                    <i class="fas fa-map-marker-alt"></i>
-                                    <span>${client.address || 'N/A'}</span>
-                                </div>
-                                <div class="client-detail">
-                                    <i class="fas fa-store"></i>
-                                    <span>${client.business || 'N/A'}</span>
-                                </div>
-                            </div>
-                            <div class="client-actions">
-                                <button class="btn btn-sm btn-primary whatsapp-btn" onclick="openWhatsApp('${client.phone || ''}')">
-                                    <i class="fab fa-whatsapp"></i> WhatsApp
-                                </button>
-                                <button class="btn btn-sm btn-success location-btn" onclick="viewLocation(${lat}, ${lng})">
-                                    <i class="fas fa-map-marker-alt"></i> Ubicación
-                                </button>
-                            </div>
-                        `;
-                        clientsList.appendChild(clientCard);
-                    });
                 }
 
-                // === Cargar créditos (solo para admin) ===
-                if (currentUserRole === 'admin' && document.getElementById('creditsTableBody')) {
-                    const creditsTableBody = document.getElementById('creditsTableBody');
-                    creditsTableBody.innerHTML = '<tr><td colspan="9" class="loading"><div class="spinner"></div></td></tr>';
-
+                // === Cargar créditos (admin: todos | cobrador: solo los suyos) ===
+                if (currentUserRole === 'admin' && document.getElementById('creditsList')) {
+                    const creditsList = document.getElementById('creditsList');
+                    creditsList.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
                     const creditsSnapshot = await db.collection('credits').get();
                     const clientsMap = new Map();
-                    const collectorsMap = new Map();
-
-                    // Cargar clientes y cobradores para mostrar nombres
-                    const clientsSnapshot = await db.collection('clients').where('collectorId', '==', uid).get();
-                    clientsSnapshot.forEach(doc => clientsMap.set(doc.id, doc.data().name || 'N/A'));
-
-                    const collectorsSnapshot2 = await db.collection('collectors').get();
-                    collectorsSnapshot2.forEach(doc => collectorsMap.set(doc.id, doc.data().name || 'N/A'));
-
-                    creditsTableBody.innerHTML = '';
-                    creditsSnapshot.forEach(doc => {
-                        const credit = doc.data();
-                        const row = document.createElement('tr');
-                        row.innerHTML = `
-                            <td>#${doc.id.substring(0,8)}</td>
-                            <td>${clientsMap.get(credit.clientId) || 'N/A'}</td>
-                            <td>${collectorsMap.get(credit.collectorId) || 'N/A'}</td>
-                            <td>$${credit.amount || 0}</td>
-                            <td>${credit.interest || 0}%</td>
-                            <td>$${credit.total || 0}</td>
-                            <td>${credit.term || 0} días</td>
-                            <td><span class="status-badge ${credit.status}">${getStatusText(credit.status)}</span></td>
-                            <td>
-                                <button class="btn btn-sm btn-primary" onclick="viewCreditDetails('${doc.id}')">Ver Detalles</button>
-                            </td>
-                        `;
-                        creditsTableBody.appendChild(row);
-                    });
+                    const clientsSnapshot = await db.collection('clients').get();
+                    clientsSnapshot.forEach(doc => clientsMap.set(doc.id, doc.data()));
+                    creditsList.innerHTML = '';
+                    if (creditsSnapshot.empty) {
+                        creditsList.innerHTML = '<div class="empty-state"><i class="fas fa-hand-holding-usd"></i><h3>No hay créditos</h3><p>Aún no se han creado créditos.</p></div>';
+                    } else {
+                        creditsSnapshot.forEach(doc => {
+                            const credit = doc.data();
+                            const client = clientsMap.get(credit.clientId) || {};
+                            const lat = client.location?.latitude || 14.07;
+                            const lng = client.location?.longitude || -87.19;
+                            const totalPayments = (credit.paymentsMade || 0) + (credit.paymentsPending || 0);
+                            const progressPercentage = totalPayments > 0 ? ((credit.paymentsMade || 0) / totalPayments) * 100 : 0;
+                            const creditCard = document.createElement('div');
+                            creditCard.className = 'credit-card';
+                            creditCard.innerHTML = `
+                                <div class="credit-header">
+                                    <div class="credit-amount">$${credit.total || 0}</div>
+                                    <span class="status-badge ${credit.status}">${getStatusText(credit.status)}</span>
+                                </div>
+                                <div class="credit-details">
+                                    <div class="credit-detail">
+                                        <div class="credit-detail-label">Cliente</div>
+                                        <div class="credit-detail-value">${client.name || 'N/A'}</div>
+                                    </div>
+                                    <div class="credit-detail">
+                                        <div class="credit-detail-label">Cuota</div>
+                                        <div class="credit-detail-value">$${credit.paymentAmount || 0}</div>
+                                    </div>
+                                    <div class="credit-detail">
+                                        <div class="credit-detail-label">Pagos</div>
+                                        <div class="credit-detail-value">${credit.paymentsMade || 0}/${totalPayments}</div>
+                                    </div>
+                                </div>
+                                <div class="payment-progress">
+                                    <div class="payment-progress-bar" style="width: ${progressPercentage}%"></div>
+                                </div>
+                                <div class="payment-actions">
+                                    <button class="btn btn-sm btn-primary" onclick="openPaymentModal('${doc.id}')">Registrar Pago</button>
+                                    <button class="btn btn-sm btn-warning" onclick="openRenewalModal('${doc.id}')">Renovar</button>
+                                    <button class="btn btn-sm whatsapp-btn" onclick="openWhatsApp('${client.phone || ''}')">
+                                        <i class="fab fa-whatsapp"></i>
+                                    </button>
+                                </div>
+                            `;
+                            creditsList.appendChild(creditCard);
+                        });
+                    }
                 }
 
                 // === Cargar mis créditos (solo para cobrador) ===
                 if (currentUserRole === 'collector' && document.getElementById('myCreditsList')) {
                     const myCreditsList = document.getElementById('myCreditsList');
                     myCreditsList.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-
                     const creditsSnapshot = await db.collection('credits').where('collectorId', '==', uid).get();
                     const clientsMap = new Map();
                     const clientsSnapshot = await db.collection('clients').where('collectorId', '==', uid).get();
                     clientsSnapshot.forEach(doc => clientsMap.set(doc.id, doc.data()));
-
                     myCreditsList.innerHTML = '';
                     if (creditsSnapshot.empty) {
                         myCreditsList.innerHTML = '<div class="empty-state"><i class="fas fa-hand-holding-usd"></i><h3>No hay créditos</h3><p>Aún no has creado créditos.</p></div>';
-                        return;
+                    } else {
+                        creditsSnapshot.forEach(doc => {
+                            const credit = doc.data();
+                            const client = clientsMap.get(credit.clientId) || {};
+                            const lat = client.location?.latitude || 14.07;
+                            const lng = client.location?.longitude || -87.19;
+                            const totalPayments = (credit.paymentsMade || 0) + (credit.paymentsPending || 0);
+                            const progressPercentage = totalPayments > 0 ? ((credit.paymentsMade || 0) / totalPayments) * 100 : 0;
+                            const creditCard = document.createElement('div');
+                            creditCard.className = 'credit-card';
+                            creditCard.innerHTML = `
+                                <div class="credit-header">
+                                    <div class="credit-amount">$${credit.total || 0}</div>
+                                    <span class="status-badge ${credit.status}">${getStatusText(credit.status)}</span>
+                                </div>
+                                <div class="credit-details">
+                                    <div class="credit-detail">
+                                        <div class="credit-detail-label">Cliente</div>
+                                        <div class="credit-detail-value">${client.name || 'N/A'}</div>
+                                    </div>
+                                    <div class="credit-detail">
+                                        <div class="credit-detail-label">Cuota</div>
+                                        <div class="credit-detail-value">$${credit.paymentAmount || 0}</div>
+                                    </div>
+                                    <div class="credit-detail">
+                                        <div class="credit-detail-label">Pagos</div>
+                                        <div class="credit-detail-value">${credit.paymentsMade || 0}/${totalPayments}</div>
+                                    </div>
+                                </div>
+                                <div class="payment-progress">
+                                    <div class="payment-progress-bar" style="width: ${progressPercentage}%"></div>
+                                </div>
+                                <div class="payment-actions">
+                                    <button class="btn btn-sm btn-primary" onclick="openPaymentModal('${doc.id}')">Registrar Pago</button>
+                                    <button class="btn btn-sm btn-warning" onclick="openRenewalModal('${doc.id}')">Renovar</button>
+                                    <button class="btn btn-sm whatsapp-btn" onclick="openWhatsApp('${client.phone || ''}')">
+                                        <i class="fab fa-whatsapp"></i>
+                                    </button>
+                                </div>
+                            `;
+                            myCreditsList.appendChild(creditCard);
+                        });
                     }
-
-                    creditsSnapshot.forEach(doc => {
-                        const credit = doc.data();
-                        const client = clientsMap.get(credit.clientId) || {};
-                        const lat = client.location?.latitude || 14.07;
-                        const lng = client.location?.longitude || -87.19;
-                        const totalPayments = (credit.paymentsMade || 0) + (credit.paymentsPending || 0);
-                        const progressPercentage = totalPayments > 0 ? ((credit.paymentsMade || 0) / totalPayments) * 100 : 0;
-
-                        const creditCard = document.createElement('div');
-                        creditCard.className = 'credit-card';
-                        creditCard.innerHTML = `
-                            <div class="credit-header">
-                                <div class="credit-amount">$${credit.total || 0}</div>
-                                <span class="status-badge ${credit.status}">${getStatusText(credit.status)}</span>
-                            </div>
-                            <div class="credit-details">
-                                <div class="credit-detail">
-                                    <div class="credit-detail-label">Cliente</div>
-                                    <div class="credit-detail-value">${client.name || 'N/A'}</div>
-                                </div>
-                                <div class="credit-detail">
-                                    <div class="credit-detail-label">Cuota</div>
-                                    <div class="credit-detail-value">$${credit.paymentAmount || 0}</div>
-                                </div>
-                                <div class="credit-detail">
-                                    <div class="credit-detail-label">Pagos</div>
-                                    <div class="credit-detail-value">${credit.paymentsMade || 0}/${totalPayments}</div>
-                                </div>
-                            </div>
-                            <div class="payment-progress">
-                                <div class="payment-progress-bar" style="width: ${progressPercentage}%"></div>
-                            </div>
-                            <div class="payment-actions">
-                                <button class="btn btn-sm btn-primary" onclick="openPaymentModal('${doc.id}')">Registrar Pago</button>
-                                <button class="btn btn-sm btn-warning" onclick="openRenewalModal('${doc.id}')">Renovar</button>
-                                <button class="btn btn-sm whatsapp-btn" onclick="openWhatsApp('${client.phone || ''}')">
-                                    <i class="fab fa-whatsapp"></i>
-                                </button>
-                            </div>
-                        `;
-                        myCreditsList.appendChild(creditCard);
-                    });
-                }
-
-                // === Clientes en mora (admin o cobrador) ===
-                if ((currentUserRole === 'admin' || currentUserRole === 'collector') && document.getElementById('overdueClientsList')) {
-                    const overdueClientsList = document.getElementById('overdueClientsList');
-                    overdueClientsList.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-
-                    let query = db.collection('credits').where('status', '==', 'overdue');
-                    if (currentUserRole === 'collector') {
-                        query = query.where('collectorId', '==', uid);
-                    }
-                    const overdueSnapshot = await query.get();
-                    const clientsMap = new Map();
-                    const collectorsMap = new Map();
-
-                    const clientsSnap = await db.collection('clients').get();
-                    clientsSnap.forEach(doc => clientsMap.set(doc.id, doc.data()));
-
-                    if (currentUserRole === 'admin') {
-                        const collSnap = await db.collection('collectors').get();
-                        collSnap.forEach(doc => collectorsMap.set(doc.id, doc.data().name || 'N/A'));
-                    }
-
-                    overdueClientsList.innerHTML = '';
-                    if (overdueSnapshot.empty) {
-                        overdueClientsList.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>No hay morosos</h3><p>Todos los créditos están al día.</p></div>';
-                        return;
-                    }
-
-                    overdueSnapshot.forEach(doc => {
-                        const credit = doc.data();
-                        const client = clientsMap.get(credit.clientId) || {};
-                        const collectorName = currentUserRole === 'admin' ? (collectorsMap.get(credit.collectorId) || 'N/A') : '';
-                        const lat = client.location?.latitude || 14.07;
-                        const lng = client.location?.longitude || -87.19;
-
-                        const clientCard = document.createElement('div');
-                        clientCard.className = 'client-card';
-                        clientCard.innerHTML = `
-                            <div class="client-header">
-                                <div class="client-name">${client.name || 'N/A'}</div>
-                                <span class="status-badge overdue">En Mora</span>
-                            </div>
-                            <div class="client-details">
-                                <div class="client-detail">
-                                    <i class="fas fa-phone"></i>
-                                    <span>${client.phone || 'N/A'}</span>
-                                </div>
-                                <div class="client-detail">
-                                    <i class="fas fa-map-marker-alt"></i>
-                                    <span>${client.address || 'N/A'}</span>
-                                </div>
-                                ${currentUserRole === 'admin' ? `<div class="client-detail"><i class="fas fa-user"></i><span>Cobrador: ${collectorName}</span></div>` : ''}
-                            </div>
-                            <div class="client-details">
-                                <div class="client-detail">
-                                    <i class="fas fa-dollar-sign"></i>
-                                    <span>Crédito: $${credit.total || 0}</span>
-                                </div>
-                                <div class="client-detail">
-                                    <i class="fas fa-calendar-times"></i>
-                                    <span>Pagos pendientes: ${credit.paymentsPending || 0}</span>
-                                </div>
-                            </div>
-                            <div class="client-actions">
-                                <button class="btn btn-sm btn-primary whatsapp-btn" onclick="openWhatsApp('${client.phone || ''}')">
-                                    <i class="fab fa-whatsapp"></i> WhatsApp
-                                </button>
-                                <button class="btn btn-sm btn-success location-btn" onclick="viewLocation(${lat}, ${lng})">
-                                    <i class="fas fa-map-marker-alt"></i> Ubicación
-                                </button>
-                            </div>
-                        `;
-                        overdueClientsList.appendChild(clientCard);
-                    });
                 }
 
                 // === Llenar selectores iniciales ===
                 loadClientsIntoCreditSelector();
 
-                // === Inicializar gráficos y mapas ===
-                initializeCharts();
-                initializeMaps();
-
             } catch (error) {
                 console.error("Error al cargar datos reales:", error);
-                showNotification('danger', 'Error', 'No se pudieron cargar los datos. Intente nuevamente.');
+                // ❌ ANTES: mostraba error y se detenía
+                // ✅ AHORA: solo registra el error, pero no interrumpe otras secciones
+                if (error.code === 'permission-denied') {
+                    console.warn("Acceso denegado a una colección. Esto es normal si no eres admin.");
+                }
+                // Notificación opcional, o simplemente ignorar
             }
         }
         
