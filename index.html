@@ -2862,122 +2862,92 @@
             }
         }
         
-        function initializeCharts() {
-            // Destruir gráfico existente si ya existe
-            if (incomeChart) {
-                incomeChart.destroy();
-            }
-            if (document.getElementById('incomeChart')) {
-                const ctx = document.getElementById('incomeChart').getContext('2d');
-                incomeChart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
-                        datasets: [{
-                            label: 'Ingresos',
-                            data: [2100, 2400, 1800, 2900, 3200, 2800, 2400],
-                            backgroundColor: 'rgba(26, 115, 232, 0.1)',
-                            borderColor: '#1a73e8',
-                            borderWidth: 2,
-                            tension: 0.4
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: { callback: v => '$' + v }
-                            }
-                        }
-                    }
-                });
-            }
+        async function loadDashboardStats() {
+            const uid = currentUser.uid;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
 
-            // === Period Chart ===
-            if (periodChart) periodChart.destroy();
-            if (document.getElementById('periodChart')) {
-                const ctx = document.getElementById('periodChart').getContext('2d');
-                periodChart = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
-                        datasets: [{
-                            label: 'Ingresos',
-                            data: [42000, 48000, 51000, 46000, 52000, 58000],
-                            backgroundColor: 'rgba(26, 115, 232, 0.7)',
-                            borderColor: '#1a73e8',
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: { callback: v => '$' + v }
-                            }
-                        }
-                    }
-                });
-            }
+            try {
+                // === ADMIN DASHBOARD ===
+                if (currentUserRole === 'admin') {
+                    // 1. Total créditos activos
+                    const activeCreditsSnap = await db.collection('credits')
+                        .where('status', '==', 'active')
+                        .get();
+                    const totalActiveCredits = activeCreditsSnap.docs.reduce((sum, doc) => sum + (doc.data().total || 0), 0);
 
-            // === Collector Chart ===
-            if (collectorChart) collectorChart.destroy();
-            if (document.getElementById('collectorChart')) {
-                const ctx = document.getElementById('collectorChart').getContext('2d');
-                collectorChart = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['Juan Pérez', 'María García', 'Carlos López', 'Otros'],
-                        datasets: [{
-                            data: [30, 25, 20, 25],
-                            backgroundColor: ['#1a73e8', '#34a853', '#fbbc05', '#ea4335'],
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { position: 'bottom' } }
-                    }
-                });
-            }
+                    // 2. Total cobrado hoy
+                    const paymentsTodaySnap = await db.collection('payments')
+                        .where('date', '>=', firebase.firestore.Timestamp.fromDate(today))
+                        .get();
+                    const totalCollectedToday = paymentsTodaySnap.docs.reduce((sum, doc) => sum + (doc.data().amount || 0), 0);
 
-            // === My Report Chart ===
-            if (myReportChart) myReportChart.destroy();
-            if (document.getElementById('myReportChart')) {
-                const ctx = document.getElementById('myReportChart').getContext('2d');
-                myReportChart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'],
-                        datasets: [{
-                            label: 'Cobros',
-                            data: [2800, 3200, 3100, 3350],
-                            backgroundColor: 'rgba(52, 168, 83, 0.1)',
-                            borderColor: '#34a853',
-                            borderWidth: 2,
-                            tension: 0.4
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: { callback: v => '$' + v }
-                            }
-                        }
-                    }
-                });
+                    // 3. Total en mora
+                    const overdueCreditsSnap = await db.collection('credits')
+                        .where('status', '==', 'overdue')
+                        .get();
+                    const totalOverdue = overdueCreditsSnap.docs.reduce((sum, doc) => sum + (doc.data().total || 0), 0);
+
+                    // 4. Cobradores activos
+                    const activeCollectorsSnap = await db.collection('collectors')
+                        .where('status', '==', 'active')
+                        .get();
+                    const activeCollectorsCount = activeCollectorsSnap.size;
+
+                    // Actualizar UI
+                    document.querySelector('#dashboard .stat-card:nth-child(1) .stat-info h3').textContent = '$' + formatNumber(totalActiveCredits);
+                    document.querySelector('#dashboard .stat-card:nth-child(2) .stat-info h3').textContent = '$' + formatNumber(totalCollectedToday);
+                    document.querySelector('#dashboard .stat-card:nth-child(3) .stat-info h3').textContent = '$' + formatNumber(totalOverdue);
+                    document.querySelector('#dashboard .stat-card:nth-child(4) .stat-info h3').textContent = activeCollectorsCount;
+                }
+
+                // === COBRADOR DASHBOARD ===
+                if (currentUserRole === 'collector') {
+                    // 1. Mis créditos activos
+                    const myActiveCreditsSnap = await db.collection('credits')
+                        .where('collectorId', '==', uid)
+                        .where('status', '==', 'active')
+                        .get();
+                    const myTotalActiveCredits = myActiveCreditsSnap.docs.reduce((sum, doc) => sum + (doc.data().total || 0), 0);
+
+                    // 2. Cobrado hoy
+                    const myPaymentsTodaySnap = await db.collection('payments')
+                        .where('collectorId', '==', uid)
+                        .where('date', '>=', firebase.firestore.Timestamp.fromDate(today))
+                        .get();
+                    const myTotalCollectedToday = myPaymentsTodaySnap.docs.reduce((sum, doc) => sum + (doc.data().amount || 0), 0);
+
+                    // 3. Clientes en mora
+                    const myOverdueSnap = await db.collection('credits')
+                        .where('collectorId', '==', uid)
+                        .where('status', '==', 'overdue')
+                        .get();
+                    const myTotalOverdue = myOverdueSnap.docs.reduce((sum, doc) => sum + (doc.data().total || 0), 0);
+
+                    // 4. Mis clientes
+                    const myClientsSnap = await db.collection('clients')
+                        .where('collectorId', '==', uid)
+                        .get();
+                    const myClientsCount = myClientsSnap.size;
+
+                    // Actualizar UI
+                    document.querySelector('#collector-dashboard .stat-card:nth-child(1) .stat-info h3').textContent = '$' + formatNumber(myTotalActiveCredits);
+                    document.querySelector('#collector-dashboard .stat-card:nth-child(2) .stat-info h3').textContent = '$' + formatNumber(myTotalCollectedToday);
+                    document.querySelector('#collector-dashboard .stat-card:nth-child(3) .stat-info h3').textContent = '$' + formatNumber(myTotalOverdue);
+                    document.querySelector('#collector-dashboard .stat-card:nth-child(4) .stat-info h3').textContent = myClientsCount;
+                }
+
+                // Inicializar gráficos (mantenemos los datos simulados por ahora, o los dejamos vacíos)
+                loadDashboardStats();
+            } catch (error) {
+                console.error("Error al cargar estadísticas del dashboard:", error);
+                // En caso de error, dejar los valores por defecto o mostrar "N/A"
             }
+        }
+
+        // Función auxiliar para formatear números
+        function formatNumber(num) {
+            return new Intl.NumberFormat('es-ES').format(Math.round(num));
         }
         
         async function initializeMaps() {
@@ -3380,25 +3350,75 @@
             }
         }
         
-        function handleRenewal(e) {
+        async function handleRenewal(e) {
             e.preventDefault();
-            
-            const amount = document.getElementById('renewalAmount').value;
-            const interest = document.getElementById('renewalInterest').value;
-            const term = document.getElementById('renewalTerm').value;
-            const notes = document.getElementById('renewalNotes').value;
-            
-            // Simulación de guardado
-            setTimeout(() => {
-                showNotification('success', 'Crédito renovado', 'El crédito ha sido renovado exitosamente');
+            if (!currentCreditId) {
+                showNotification('danger', 'Error', 'No se ha seleccionado un crédito para renovar.');
+                return;
+            }
+            const renewalAmount = parseFloat(document.getElementById('renewalAmount').value);
+            const renewalInterest = parseFloat(document.getElementById('renewalInterest').value);
+            const renewalTerm = parseInt(document.getElementById('renewalTerm').value);
+            const renewalNotes = document.getElementById('renewalNotes').value;
+
+            if (!renewalAmount || !renewalInterest || !renewalTerm) {
+                showNotification('warning', 'Advertencia', 'Por favor completa todos los campos obligatorios.');
+                return;
+            }
+
+            try {
+                // 1. Obtener el crédito original
+                const originalCreditRef = db.collection('credits').doc(currentCreditId);
+                const originalCreditDoc = await originalCreditRef.get();
+                if (!originalCreditDoc.exists) {
+                    throw new Error('Crédito original no encontrado.');
+                }
+                const originalCredit = originalCreditDoc.data();
+
+                // 2. Calcular nuevo total y cuota
+                const newTotal = renewalAmount * (1 + renewalInterest / 100);
+                let newPaymentAmount;
+                // Asumimos pago diario como en tu app actual
+                newPaymentAmount = newTotal / renewalTerm;
+
+                // 3. Crear el nuevo crédito
+                const newCreditData = {
+                    clientId: originalCredit.clientId,
+                    collectorId: originalCredit.collectorId,
+                    amount: renewalAmount,
+                    interest: renewalInterest,
+                    total: newTotal,
+                    term: renewalTerm,
+                    paymentFrequency: 'daily', // ajusta si necesitas soportar otras frecuencias
+                    paymentAmount: newPaymentAmount,
+                    startDate: firebase.firestore.FieldValue.serverTimestamp(),
+                    status: 'active',
+                    paymentsMade: 0,
+                    paymentsPending: renewalTerm,
+                    notes: renewalNotes,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    renewedFrom: currentCreditId // opcional: para trazabilidad
+                };
+
+                // 4. Guardar nuevo crédito y actualizar el original en una transacción
+                const batch = db.batch();
+                // Agregar nuevo crédito
+                const newCreditRef = db.collection('credits').doc();
+                batch.set(newCreditRef, newCreditData);
+                // Marcar el original como renovado
+                batch.update(originalCreditRef, { status: 'renewed' });
+
+                await batch.commit();
+
+                showNotification('success', 'Crédito renovado', 'Se ha creado un nuevo crédito renovado exitosamente.');
                 document.getElementById('renewalModal').classList.remove('open');
-                
-                // Limpiar formulario
                 document.getElementById('renewalForm').reset();
-                
-                // Recargar página actual
-                loadSimulatedData();
-            }, 1000);
+                loadRealData(); // Recargar todos los datos
+
+            } catch (error) {
+                console.error("Error al renovar crédito:", error);
+                showNotification('danger', 'Error', 'No se pudo renovar el crédito. Intente nuevamente.');
+            }
         }
         
         // Funciones de utilidad
