@@ -2883,74 +2883,80 @@
             const todayEnd = new Date();
             todayEnd.setHours(23, 59, 59, 999);
 
-            try {
-                // === ADMIN DASHBOARD ===
-                if (currentUserRole === 'admin') {
-                    const activeCreditsSnap = await db.collection('credits').where('status', '==', 'active').get();
-                    const totalActiveCredits = activeCreditsSnap.docs.reduce((sum, doc) => sum + (doc.data().total || 0), 0);
+            // Función interna con reintentos
+            async function tryUpdateStats(attempt = 0) {
+                try {
+                    if (currentUserRole === 'admin') {
+                        const adminEl = document.getElementById('adminActiveCredits');
+                        if (!adminEl && attempt < 3) {
+                            setTimeout(() => tryUpdateStats(attempt + 1), 100);
+                            return;
+                        }
+                        // ... lógica de admin (igual que antes)
+                        const activeCreditsSnap = await db.collection('credits').where('status', '==', 'active').get();
+                        const totalActiveCredits = activeCreditsSnap.docs.reduce((sum, doc) => sum + (doc.data().total || 0), 0);
+                        const paymentsTodaySnap = await db.collection('payments')
+                            .where('date', '>=', firebase.firestore.Timestamp.fromDate(todayStart))
+                            .where('date', '<=', firebase.firestore.Timestamp.fromDate(todayEnd))
+                            .get();
+                        const totalCollectedToday = paymentsTodaySnap.docs.reduce((sum, doc) => sum + (doc.data().amount || 0), 0);
+                        const overdueCreditsSnap = await db.collection('credits').where('status', '==', 'overdue').get();
+                        const totalOverdue = overdueCreditsSnap.docs.reduce((sum, doc) => sum + (doc.data().total || 0), 0);
+                        const activeCollectorsSnap = await db.collection('collectors').where('status', '==', 'active').get();
+                        const activeCollectorsCount = activeCollectorsSnap.size;
+                        document.getElementById('adminActiveCredits').textContent = '$' + formatNumber(totalActiveCredits);
+                        document.getElementById('adminCollectedToday').textContent = '$' + formatNumber(totalCollectedToday);
+                        document.getElementById('adminOverdueTotal').textContent = '$' + formatNumber(totalOverdue);
+                        document.getElementById('adminActiveCollectors').textContent = activeCollectorsCount;
+                    }
 
-                    const paymentsTodaySnap = await db.collection('payments')
-                        .where('date', '>=', firebase.firestore.Timestamp.fromDate(todayStart))
-                        .where('date', '<=', firebase.firestore.Timestamp.fromDate(todayEnd))
-                        .get();
-                    const totalCollectedToday = paymentsTodaySnap.docs.reduce((sum, doc) => sum + (doc.data().amount || 0), 0);
-
-                    const overdueCreditsSnap = await db.collection('credits').where('status', '==', 'overdue').get();
-                    const totalOverdue = overdueCreditsSnap.docs.reduce((sum, doc) => sum + (doc.data().total || 0), 0);
-
-                    const activeCollectorsSnap = await db.collection('collectors').where('status', '==', 'active').get();
-                    const activeCollectorsCount = activeCollectorsSnap.size;
-
-                    document.getElementById('adminActiveCredits').textContent = '$' + formatNumber(totalActiveCredits);
-                    document.getElementById('adminCollectedToday').textContent = '$' + formatNumber(totalCollectedToday);
-                    document.getElementById('adminOverdueTotal').textContent = '$' + formatNumber(totalOverdue);
-                    document.getElementById('adminActiveCollectors').textContent = activeCollectorsCount;
-                }
-
-                // === COBRADOR DASHBOARD ===
-                if (currentUserRole === 'collector') {
-                    // 1. Mis créditos activos
-                    const myCreditsSnap = await db.collection('credits')
-                        .where('collectorId', '==', uid)
-                        .get();
-                    const myActiveCredits = myCreditsSnap.docs
-                        .filter(doc => doc.data().status === 'active')
-                        .reduce((sum, doc) => sum + (doc.data().total || 0), 0);
-                    const clientCount = new Set(myCreditsSnap.docs.map(doc => doc.data().clientId)).size;
-
-                    // 2. Pagos HOY: cargar todos los pagos de mis créditos que sean de HOY
-                    let totalCollectedToday = 0;
-                    const paymentPromises = [];
-                    myCreditsSnap.docs.forEach(doc => {
-                        paymentPromises.push(
-                            db.collection('payments')
-                                .where('creditId', '==', doc.id)
-                                .where('date', '>=', firebase.firestore.Timestamp.fromDate(todayStart))
-                                .where('date', '<=', firebase.firestore.Timestamp.fromDate(todayEnd))
-                                .get()
-                        );
-                    });
-                    const paymentSnapshots = await Promise.all(paymentPromises);
-                    paymentSnapshots.forEach(snap => {
-                        snap.docs.forEach(doc => {
-                            totalCollectedToday += doc.data().amount || 0;
+                    if (currentUserRole === 'collector') {
+                        const collectorEl = document.getElementById('collectorActiveCredits');
+                        if (!collectorEl && attempt < 3) {
+                            setTimeout(() => tryUpdateStats(attempt + 1), 100);
+                            return;
+                        }
+                        // --- LÓGICA DEL COBRADOR ---
+                        const myCreditsSnap = await db.collection('credits').where('collectorId', '==', uid).get();
+                        const myActiveCredits = myCreditsSnap.docs
+                            .filter(doc => doc.data().status === 'active')
+                            .reduce((sum, doc) => sum + (doc.data().total || 0), 0);
+                        const clientCount = new Set(myCreditsSnap.docs.map(doc => doc.data().clientId)).size;
+                        let totalCollectedToday = 0;
+                        const paymentPromises = [];
+                        myCreditsSnap.docs.forEach(doc => {
+                            paymentPromises.push(
+                                db.collection('payments')
+                                    .where('creditId', '==', doc.id)
+                                    .where('date', '>=', firebase.firestore.Timestamp.fromDate(todayStart))
+                                    .where('date', '<=', firebase.firestore.Timestamp.fromDate(todayEnd))
+                                    .get()
+                            );
                         });
-                    });
-
-                    // 3. Clientes en mora
-                    const overdueCount = myCreditsSnap.docs
-                        .filter(doc => doc.data().status === 'overdue')
-                        .reduce((sum, doc) => sum + (doc.data().total || 0), 0);
-
-                    // Actualizar UI
-                    document.getElementById('collectorActiveCredits').textContent = '$' + formatNumber(myActiveCredits);
-                    document.getElementById('collectorCollectedToday').textContent = '$' + formatNumber(totalCollectedToday);
-                    document.getElementById('collectorOverdueTotal').textContent = '$' + formatNumber(overdueCount);
-                    document.getElementById('collectorClientCount').textContent = clientCount;
+                        const paymentSnapshots = await Promise.all(paymentPromises);
+                        paymentSnapshots.forEach(snap => {
+                            snap.docs.forEach(doc => {
+                                totalCollectedToday += doc.data().amount || 0;
+                            });
+                        });
+                        const overdueCount = myCreditsSnap.docs
+                            .filter(doc => doc.data().status === 'overdue')
+                            .reduce((sum, doc) => sum + (doc.data().total || 0), 0);
+                        // --- ACTUALIZAR UI ---
+                        document.getElementById('collectorActiveCredits').textContent = '$' + formatNumber(myActiveCredits);
+                        document.getElementById('collectorCollectedToday').textContent = '$' + formatNumber(totalCollectedToday);
+                        document.getElementById('collectorOverdueTotal').textContent = '$' + formatNumber(overdueCount);
+                        document.getElementById('collectorClientCount').textContent = clientCount;
+                    }
+                } catch (error) {
+                    console.error("Error en loadDashboardStats (intento " + attempt + "):", error);
+                    if (attempt < 3) {
+                        setTimeout(() => tryUpdateStats(attempt + 1), 150);
+                    }
                 }
-            } catch (error) {
-                console.error("Error definitivo en loadDashboardStats:", error);
             }
+
+            tryUpdateStats();
         }
 
         // Función auxiliar para formatear números
