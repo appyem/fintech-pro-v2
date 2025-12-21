@@ -2904,8 +2904,28 @@
                     const myActiveCreditsSnap = await db.collection('credits').where('collectorId', '==', uid).where('status', '==', 'active').get();
                     const myTotalActiveCredits = myActiveCreditsSnap.docs.reduce((sum, doc) => sum + (doc.data().total || 0), 0);
 
-                    const myPaymentsTodaySnap = await db.collection('payments').where('collectorId', '==', uid).where('date', '>=', firebase.firestore.Timestamp.fromDate(today)).get();
-                    const myTotalCollectedToday = myPaymentsTodaySnap.docs.reduce((sum, doc) => sum + (doc.data().amount || 0), 0);
+                    // 2. Cobrado hoy: obtener pagos de los créditos del cobrador
+                    let myTotalCollectedToday = 0;
+                    const myCreditsSnap = await db.collection('credits')
+                        .where('collectorId', '==', uid)
+                        .get();
+
+                    const paymentPromises = [];
+                    myCreditsSnap.forEach(doc => {
+                        paymentPromises.push(
+                            db.collection('payments')
+                                .where('creditId', '==', doc.id)
+                                .where('date', '>=', firebase.firestore.Timestamp.fromDate(today))
+                                .get()
+                        );
+                    });
+
+                    const paymentsSnapshots = await Promise.all(paymentPromises);
+                    paymentsSnapshots.forEach(snap => {
+                        snap.docs.forEach(doc => {
+                            myTotalCollectedToday += doc.data().amount || 0;
+                        });
+                    });
 
                     const myOverdueSnap = await db.collection('credits').where('collectorId', '==', uid).where('status', '==', 'overdue').get();
                     const myTotalOverdue = myOverdueSnap.docs.reduce((sum, doc) => sum + (doc.data().total || 0), 0);
@@ -3316,12 +3336,13 @@
 
                 // CREAR REGISTRO DE PAGO
                 await db.collection('payments').add({
-                creditId,
-                amount,
-                type,
-                notes,
-                collectorId: currentUser.uid,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    creditId: creditId,
+                    collectorId: currentUser.uid, // ✅ AGREGADO
+                    date: firebase.firestore.Timestamp.fromDate(new Date(date)),
+                    amount: amount,
+                    type: type,
+                    notes: notes,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
                 showNotification('success', 'Pago registrado', 'El pago ha sido registrado exitosamente');
