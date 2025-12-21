@@ -2539,7 +2539,33 @@
         async function loadRealData() {
             const uid = currentUser.uid;
             try {
-                // === Cargar cobradores (solo admin) ===
+                // === Cargar cobradores (solo admin - formato tabla) ===
+                if (currentUserRole === 'admin' && document.getElementById('collectorsTableBody')) {
+                    const collectorsTableBody = document.getElementById('collectorsTableBody');
+                    collectorsTableBody.innerHTML = '<tr><td colspan="6" class="loading"><div class="spinner"></div></td></tr>';
+                    const collectorsSnapshot = await db.collection('collectors').get();
+                    collectorsTableBody.innerHTML = '';
+                    collectorsSnapshot.forEach(doc => {
+                        const collector = doc.data();
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${collector.name || 'N/A'}</td>
+                            <td>${collector.email || 'N/A'}</td>
+                            <td>${collector.phone || 'N/A'}</td>
+                            <td>${collector.zone || 'N/A'}</td>
+                            <td><span class="status-badge ${collector.status}">${collector.status === 'active' ? 'Activo' : 'Inactivo'}</span></td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" onclick="editCollector('${doc.id}')">Editar</button>
+                                <button class="btn btn-sm btn-danger" onclick="toggleCollectorStatus('${doc.id}', '${collector.status}')">
+                                    ${collector.status === 'active' ? 'Desactivar' : 'Activar'}
+                                </button>
+                            </td>
+                        `;
+                        collectorsTableBody.appendChild(row);
+                    });
+                }
+
+                // === Cargar lista de cobradores para tarjetas (si existe el contenedor, e.g., dashboard admin) ===
                 if (currentUserRole === 'admin' && document.getElementById('collectorsList')) {
                     const collectorsList = document.getElementById('collectorsList');
                     collectorsList.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
@@ -2612,7 +2638,40 @@
                     }
                 }
 
-                // === Cargar créditos (admin: todos | cobrador: solo los suyos) ===
+                // === Cargar créditos (admin: tabla completa) ===
+                if (currentUserRole === 'admin' && document.getElementById('creditsTableBody')) {
+                    const creditsTableBody = document.getElementById('creditsTableBody');
+                    creditsTableBody.innerHTML = '<tr><td colspan="9" class="loading"><div class="spinner"></div></td></tr>';
+                    const creditsSnapshot = await db.collection('credits').get();
+                    const clientsMap = new Map();
+                    const collectorsMap = new Map();
+                    // Cargar clientes y cobradores para mostrar nombres
+                    const clientsSnapshot = await db.collection('clients').get();
+                    clientsSnapshot.forEach(doc => clientsMap.set(doc.id, doc.data().name || 'N/A'));
+                    const collectorsSnapshot2 = await db.collection('collectors').get();
+                    collectorsSnapshot2.forEach(doc => collectorsMap.set(doc.id, doc.data().name || 'N/A'));
+                    creditsTableBody.innerHTML = '';
+                    creditsSnapshot.forEach(doc => {
+                        const credit = doc.data();
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>#${doc.id.substring(0,8)}</td>
+                            <td>${clientsMap.get(credit.clientId) || 'N/A'}</td>
+                            <td>${collectorsMap.get(credit.collectorId) || 'N/A'}</td>
+                            <td>$${credit.amount || 0}</td>
+                            <td>${credit.interest || 0}%</td>
+                            <td>$${credit.total || 0}</td>
+                            <td>${credit.term || 0} días</td>
+                            <td><span class="status-badge ${credit.status}">${getStatusText(credit.status)}</span></td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" onclick="viewCreditDetails('${doc.id}')">Ver Detalles</button>
+                            </td>
+                        `;
+                        creditsTableBody.appendChild(row);
+                    });
+                }
+
+                // === Cargar créditos para tarjetas (dashboard admin) ===
                 if (currentUserRole === 'admin' && document.getElementById('creditsList')) {
                     const creditsList = document.getElementById('creditsList');
                     creditsList.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
@@ -2724,17 +2783,82 @@
                     }
                 }
 
+                // === Clientes en mora (admin o cobrador) ===
+                if ((currentUserRole === 'admin' || currentUserRole === 'collector') && document.getElementById('overdueClientsList')) {
+                    const overdueClientsList = document.getElementById('overdueClientsList');
+                    overdueClientsList.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+                    let query = db.collection('credits').where('status', '==', 'overdue');
+                    if (currentUserRole === 'collector') {
+                        query = query.where('collectorId', '==', uid);
+                    }
+                    const overdueSnapshot = await query.get();
+                    const clientsMap = new Map();
+                    const collectorsMap = new Map();
+                    const clientsSnap = await db.collection('clients').get();
+                    clientsSnap.forEach(doc => clientsMap.set(doc.id, doc.data()));
+                    if (currentUserRole === 'admin') {
+                        const collSnap = await db.collection('collectors').get();
+                        collSnap.forEach(doc => collectorsMap.set(doc.id, doc.data().name || 'N/A'));
+                    }
+                    overdueClientsList.innerHTML = '';
+                    if (overdueSnapshot.empty) {
+                        overdueClientsList.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>No hay morosos</h3><p>Todos los créditos están al día.</p></div>';
+                        return;
+                    }
+                    overdueSnapshot.forEach(doc => {
+                        const credit = doc.data();
+                        const client = clientsMap.get(credit.clientId) || {};
+                        const collectorName = currentUserRole === 'admin' ? (collectorsMap.get(credit.collectorId) || 'N/A') : '';
+                        const lat = client.location?.latitude || 14.07;
+                        const lng = client.location?.longitude || -87.19;
+                        const clientCard = document.createElement('div');
+                        clientCard.className = 'client-card';
+                        clientCard.innerHTML = `
+                            <div class="client-header">
+                                <div class="client-name">${client.name || 'N/A'}</div>
+                                <span class="status-badge overdue">En Mora</span>
+                            </div>
+                            <div class="client-details">
+                                <div class="client-detail">
+                                    <i class="fas fa-phone"></i>
+                                    <span>${client.phone || 'N/A'}</span>
+                                </div>
+                                <div class="client-detail">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span>${client.address || 'N/A'}</span>
+                                </div>
+                                ${currentUserRole === 'admin' ? `<div class="client-detail"><i class="fas fa-user"></i><span>Cobrador: ${collectorName}</span></div>` : ''}
+                            </div>
+                            <div class="client-details">
+                                <div class="client-detail">
+                                    <i class="fas fa-dollar-sign"></i>
+                                    <span>Crédito: $${credit.total || 0}</span>
+                                </div>
+                                <div class="client-detail">
+                                    <i class="fas fa-calendar-times"></i>
+                                    <span>Pagos pendientes: ${credit.paymentsPending || 0}</span>
+                                </div>
+                            </div>
+                            <div class="client-actions">
+                                <button class="btn btn-sm btn-primary whatsapp-btn" onclick="openWhatsApp('${client.phone || ''}')">
+                                    <i class="fab fa-whatsapp"></i> WhatsApp
+                                </button>
+                                <button class="btn btn-sm btn-success location-btn" onclick="viewLocation(${lat}, ${lng})">
+                                    <i class="fas fa-map-marker-alt"></i> Ubicación
+                                </button>
+                            </div>
+                        `;
+                        overdueClientsList.appendChild(clientCard);
+                    });
+                }
+
                 // === Llenar selectores iniciales ===
                 loadClientsIntoCreditSelector();
-
             } catch (error) {
                 console.error("Error al cargar datos reales:", error);
-                // ❌ ANTES: mostraba error y se detenía
-                // ✅ AHORA: solo registra el error, pero no interrumpe otras secciones
                 if (error.code === 'permission-denied') {
                     console.warn("Acceso denegado a una colección. Esto es normal si no eres admin.");
                 }
-                // Notificación opcional, o simplemente ignorar
             }
         }
         
