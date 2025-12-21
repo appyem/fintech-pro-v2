@@ -1245,37 +1245,34 @@
                                 <i class="fas fa-hand-holding-usd"></i>
                             </div>
                             <div class="stat-info">
-                                <h3>$45,230</h3>
+                                <h3 id="adminActiveCredits">$0</h3>
                                 <p>Total Créditos Activos</p>
                             </div>
                         </div>
-                        
                         <div class="stat-card">
                             <div class="stat-icon success">
                                 <i class="fas fa-dollar-sign"></i>
                             </div>
                             <div class="stat-info">
-                                <h3>$2,840</h3>
+                                <h3 id="adminCollectedToday">$0</h3>
                                 <p>Total Cobrado Hoy</p>
                             </div>
                         </div>
-                        
                         <div class="stat-card">
                             <div class="stat-icon danger">
                                 <i class="fas fa-exclamation-triangle"></i>
                             </div>
                             <div class="stat-info">
-                                <h3>$5,120</h3>
+                                <h3 id="adminOverdueTotal">$0</h3>
                                 <p>Total en Mora</p>
                             </div>
                         </div>
-                        
                         <div class="stat-card">
                             <div class="stat-icon warning">
                                 <i class="fas fa-users"></i>
                             </div>
                             <div class="stat-info">
-                                <h3>12</h3>
+                                <h3 id="adminActiveCollectors">0</h3>
                                 <p>Cobradores Activos</p>
                             </div>
                         </div>
@@ -1317,37 +1314,34 @@
                                 <i class="fas fa-hand-holding-usd"></i>
                             </div>
                             <div class="stat-info">
-                                <h3>$8,450</h3>
+                                <h3 id="collectorActiveCredits">$0</h3>
                                 <p>Mis Créditos Activos</p>
                             </div>
                         </div>
-                        
                         <div class="stat-card">
                             <div class="stat-icon success">
                                 <i class="fas fa-dollar-sign"></i>
                             </div>
                             <div class="stat-info">
-                                <h3>$560</h3>
-                                <p>Cobrado Hoy</h3>
+                                <h3 id="collectorCollectedToday">$0</h3>
+                                <p>Cobrado Hoy</p>
                             </div>
                         </div>
-                        
                         <div class="stat-card">
                             <div class="stat-icon danger">
                                 <i class="fas fa-exclamation-triangle"></i>
                             </div>
                             <div class="stat-info">
-                                <h3>$890</h3>
+                                <h3 id="collectorOverdueTotal">$0</h3>
                                 <p>Clientes en Mora</p>
                             </div>
                         </div>
-                        
                         <div class="stat-card">
                             <div class="stat-icon warning">
                                 <i class="fas fa-users"></i>
                             </div>
                             <div class="stat-info">
-                                <h3>24</h3>
+                                <h3 id="collectorClientCount">0</h3>
                                 <p>Mis Clientes</p>
                             </div>
                         </div>
@@ -2887,81 +2881,47 @@
             const uid = currentUser.uid;
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-
             try {
-                // === ADMIN DASHBOARD ===
                 if (currentUserRole === 'admin') {
-                    // 1. Total créditos activos
-                    const activeCreditsSnap = await db.collection('credits')
-                        .where('status', '==', 'active')
-                        .get();
+                    const activeCreditsSnap = await db.collection('credits').where('status', '==', 'active').get();
                     const totalActiveCredits = activeCreditsSnap.docs.reduce((sum, doc) => sum + (doc.data().total || 0), 0);
 
-                    // 2. Total cobrado hoy
-                    const paymentsTodaySnap = await db.collection('payments')
-                        .where('date', '>=', firebase.firestore.Timestamp.fromDate(today))
-                        .get();
+                    const paymentsTodaySnap = await db.collection('payments').where('date', '>=', firebase.firestore.Timestamp.fromDate(today)).get();
                     const totalCollectedToday = paymentsTodaySnap.docs.reduce((sum, doc) => sum + (doc.data().amount || 0), 0);
 
-                    // 3. Total en mora
-                    const overdueCreditsSnap = await db.collection('credits')
-                        .where('status', '==', 'overdue')
-                        .get();
+                    const overdueCreditsSnap = await db.collection('credits').where('status', '==', 'overdue').get();
                     const totalOverdue = overdueCreditsSnap.docs.reduce((sum, doc) => sum + (doc.data().total || 0), 0);
 
-                    // 4. Cobradores activos
-                    const activeCollectorsSnap = await db.collection('collectors')
-                        .where('status', '==', 'active')
-                        .get();
+                    const activeCollectorsSnap = await db.collection('collectors').where('status', '==', 'active').get();
                     const activeCollectorsCount = activeCollectorsSnap.size;
 
-                    // Actualizar UI
-                    document.querySelector('#dashboard .stat-card:nth-child(1) .stat-info h3').textContent = '$' + formatNumber(totalActiveCredits);
-                    document.querySelector('#dashboard .stat-card:nth-child(2) .stat-info h3').textContent = '$' + formatNumber(totalCollectedToday);
-                    document.querySelector('#dashboard .stat-card:nth-child(3) .stat-info h3').textContent = '$' + formatNumber(totalOverdue);
-                    document.querySelector('#dashboard .stat-card:nth-child(4) .stat-info h3').textContent = activeCollectorsCount;
+                    // Actualizar con IDs únicos
+                    document.getElementById('adminActiveCredits').textContent = '$' + formatNumber(totalActiveCredits);
+                    document.getElementById('adminCollectedToday').textContent = '$' + formatNumber(totalCollectedToday);
+                    document.getElementById('adminOverdueTotal').textContent = '$' + formatNumber(totalOverdue);
+                    document.getElementById('adminActiveCollectors').textContent = activeCollectorsCount;
                 }
-
-                // === COBRADOR DASHBOARD ===
                 if (currentUserRole === 'collector') {
-                    // 1. Mis créditos activos
-                    const myActiveCreditsSnap = await db.collection('credits')
-                        .where('collectorId', '==', uid)
-                        .where('status', '==', 'active')
-                        .get();
+                    const myActiveCreditsSnap = await db.collection('credits').where('collectorId', '==', uid).where('status', '==', 'active').get();
                     const myTotalActiveCredits = myActiveCreditsSnap.docs.reduce((sum, doc) => sum + (doc.data().total || 0), 0);
 
-                    // 2. Cobrado hoy
-                    const myPaymentsTodaySnap = await db.collection('payments')
-                        .where('collectorId', '==', uid)
-                        .where('date', '>=', firebase.firestore.Timestamp.fromDate(today))
-                        .get();
+                    const myPaymentsTodaySnap = await db.collection('payments').where('collectorId', '==', uid).where('date', '>=', firebase.firestore.Timestamp.fromDate(today)).get();
                     const myTotalCollectedToday = myPaymentsTodaySnap.docs.reduce((sum, doc) => sum + (doc.data().amount || 0), 0);
 
-                    // 3. Clientes en mora
-                    const myOverdueSnap = await db.collection('credits')
-                        .where('collectorId', '==', uid)
-                        .where('status', '==', 'overdue')
-                        .get();
+                    const myOverdueSnap = await db.collection('credits').where('collectorId', '==', uid).where('status', '==', 'overdue').get();
                     const myTotalOverdue = myOverdueSnap.docs.reduce((sum, doc) => sum + (doc.data().total || 0), 0);
 
-                    // 4. Mis clientes
-                    const myClientsSnap = await db.collection('clients')
-                        .where('collectorId', '==', uid)
-                        .get();
+                    const myClientsSnap = await db.collection('clients').where('collectorId', '==', uid).get();
                     const myClientsCount = myClientsSnap.size;
 
-                    // Actualizar UI
-                    document.querySelector('#collector-dashboard .stat-card:nth-child(1) .stat-info h3').textContent = '$' + formatNumber(myTotalActiveCredits);
-                    document.querySelector('#collector-dashboard .stat-card:nth-child(2) .stat-info h3').textContent = '$' + formatNumber(myTotalCollectedToday);
-                    document.querySelector('#collector-dashboard .stat-card:nth-child(3) .stat-info h3').textContent = '$' + formatNumber(myTotalOverdue);
-                    document.querySelector('#collector-dashboard .stat-card:nth-child(4) .stat-info h3').textContent = myClientsCount;
+                    // Actualizar con IDs únicos
+                    document.getElementById('collectorActiveCredits').textContent = '$' + formatNumber(myTotalActiveCredits);
+                    document.getElementById('collectorCollectedToday').textContent = '$' + formatNumber(myTotalCollectedToday);
+                    document.getElementById('collectorOverdueTotal').textContent = '$' + formatNumber(myTotalOverdue);
+                    document.getElementById('collectorClientCount').textContent = myClientsCount;
                 }
-
-                
             } catch (error) {
                 console.error("Error al cargar estadísticas del dashboard:", error);
-                // En caso de error, dejar los valores por defecto o mostrar "N/A"
             }
         }
 
@@ -3316,8 +3276,7 @@
         
         async function handlePayment(e) {
             e.preventDefault();
-            const creditId = currentCreditId; // Necesitamos saber a qué crédito pertenece el pago
-            const date = document.getElementById('paymentDate').value;
+            const creditId = currentCreditId;
             const amount = parseFloat(document.getElementById('paymentAmount').value);
             const type = document.getElementById('paymentType').value;
             const notes = document.getElementById('paymentNotes').value;
@@ -3328,47 +3287,47 @@
             }
 
             try {
-                // 1. Registrar el pago en la colección 'payments'
-                await db.collection('payments').add({
-                    creditId: creditId,
-                    amount: amount,
-                    date: firebase.firestore.Timestamp.fromDate(new Date(date)),
-                    type: type,
-                    notes: notes,
-                    collectorId: currentUser.uid,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-
-                // 2. Actualizar el crédito: incrementar paymentsMade y ajustar estado si es necesario
+                // USAR TRANSACCIÓN PARA GARANTIZAR CONSISTENCIA
                 const creditRef = db.collection('credits').doc(creditId);
-                const creditDoc = await creditRef.get();
-                if (!creditDoc.exists) throw new Error('Crédito no encontrado');
-
-                const credit = creditDoc.data();
-                const newPaymentsMade = (credit.paymentsMade || 0) + 1;
-                const totalPayments = (credit.paymentsMade || 0) + (credit.paymentsPending || 0);
-                let newStatus = credit.status;
-
-                // Si ya se hicieron todos los pagos, marcar como pagado
-                if (newPaymentsMade >= totalPayments) {
-                    newStatus = 'paid';
+                
+                await db.runTransaction(async (transaction) => {
+                const creditDoc = await transaction.get(creditRef);
+                if (!creditDoc.exists) {
+                    throw new Error('Crédito no encontrado');
                 }
 
-                await creditRef.update({
+                const credit = creditDoc.data();
+                const totalPayments = (credit.paymentsMade || 0) + (credit.paymentsPending || 0);
+                const newPaymentsMade = (credit.paymentsMade || 0) + 1;
+                const newStatus = newPaymentsMade >= totalPayments ? 'paid' : credit.status;
+
+                // ACTUALIZAR CRÉDITO
+                transaction.update(creditRef, {
                     paymentsMade: newPaymentsMade,
-                    status: newStatus
+                    status: newStatus,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                });
+
+                // CREAR REGISTRO DE PAGO
+                await db.collection('payments').add({
+                creditId,
+                amount,
+                type,
+                notes,
+                collectorId: currentUser.uid,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
                 showNotification('success', 'Pago registrado', 'El pago ha sido registrado exitosamente');
                 document.getElementById('paymentModal').classList.remove('open');
                 document.getElementById('paymentForm').reset();
-                loadRealData(); // Recargar todos los datos
-
+                loadRealData(); // RECARGAR DATOS
             } catch (error) {
                 console.error("Error al registrar pago:", error);
                 showNotification('danger', 'Error', 'No se pudo registrar el pago. Intente nuevamente.');
             }
-        }
+            }
         
         async function handleRenewal(e) {
             e.preventDefault();
@@ -3376,6 +3335,7 @@
                 showNotification('danger', 'Error', 'No se ha seleccionado un crédito para renovar.');
                 return;
             }
+
             const renewalAmount = parseFloat(document.getElementById('renewalAmount').value);
             const renewalInterest = parseFloat(document.getElementById('renewalInterest').value);
             const renewalTerm = parseInt(document.getElementById('renewalTerm').value);
@@ -3386,30 +3346,29 @@
                 return;
             }
 
+            const originalCreditRef = db.collection('credits').doc(currentCreditId);
+
             try {
-                // 1. Obtener el crédito original
-                const originalCreditRef = db.collection('credits').doc(currentCreditId);
-                const originalCreditDoc = await originalCreditRef.get();
-                if (!originalCreditDoc.exists) {
+                // TRANSACCIÓN ATÓMICA PARA RENOVACIÓN
+                await db.runTransaction(async (transaction) => {
+                const originalDoc = await transaction.get(originalCreditRef);
+                if (!originalDoc.exists) {
                     throw new Error('Crédito original no encontrado.');
                 }
-                const originalCredit = originalCreditDoc.data();
 
-                // 2. Calcular nuevo total y cuota
+                const original = originalDoc.data();
                 const newTotal = renewalAmount * (1 + renewalInterest / 100);
-                let newPaymentAmount;
-                // Asumimos pago diario como en tu app actual
-                newPaymentAmount = newTotal / renewalTerm;
+                const newPaymentAmount = newTotal / renewalTerm;
 
-                // 3. Crear el nuevo crédito
+                // DATOS DEL NUEVO CRÉDITO
                 const newCreditData = {
-                    clientId: originalCredit.clientId,
-                    collectorId: originalCredit.collectorId,
+                    clientId: original.clientId,
+                    collectorId: original.collectorId,
                     amount: renewalAmount,
                     interest: renewalInterest,
                     total: newTotal,
                     term: renewalTerm,
-                    paymentFrequency: 'daily', // ajusta si necesitas soportar otras frecuencias
+                    paymentFrequency: 'daily',
                     paymentAmount: newPaymentAmount,
                     startDate: firebase.firestore.FieldValue.serverTimestamp(),
                     status: 'active',
@@ -3417,29 +3376,27 @@
                     paymentsPending: renewalTerm,
                     notes: renewalNotes,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    renewedFrom: currentCreditId // opcional: para trazabilidad
+                    renewedFrom: currentCreditId // REFERENCIA AL CRÉDITO ORIGINAL
                 };
 
-                // 4. Guardar nuevo crédito y actualizar el original en una transacción
-                const batch = db.batch();
-                // Agregar nuevo crédito
+                // CREAR NUEVO CRÉDITO Y MARCAR ORIGINAL COMO RENOVADO
                 const newCreditRef = db.collection('credits').doc();
-                batch.set(newCreditRef, newCreditData);
-                // Marcar el original como renovado
-                batch.update(originalCreditRef, { status: 'renewed' });
+                transaction.set(newCreditRef, newCreditData);
+                transaction.update(originalCreditRef, { 
+                    status: 'renewed',
+                    renewedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                });
 
-                await batch.commit();
-
-                showNotification('success', 'Crédito renovado', 'Se ha creado un nuevo crédito renovado exitosamente.');
+                showNotification('success', 'Crédito renovado', 'Se ha renovado el crédito en una operación atómica.');
                 document.getElementById('renewalModal').classList.remove('open');
                 document.getElementById('renewalForm').reset();
-                loadRealData(); // Recargar todos los datos
-
+                loadRealData();
             } catch (error) {
                 console.error("Error al renovar crédito:", error);
                 showNotification('danger', 'Error', 'No se pudo renovar el crédito. Intente nuevamente.');
             }
-        }
+            }
         
         // Funciones de utilidad
         function calculateCreditSummary() {
