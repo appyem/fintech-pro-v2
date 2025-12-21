@@ -2635,7 +2635,7 @@
                     const collectorsMap = new Map();
 
                     // Cargar clientes y cobradores para mostrar nombres
-                    const clientsSnapshot = await db.collection('clients').get();
+                    const clientsSnapshot = await db.collection('clients').where('collectorId', '==', uid).get();
                     clientsSnapshot.forEach(doc => clientsMap.set(doc.id, doc.data().name || 'N/A'));
 
                     const collectorsSnapshot2 = await db.collection('collectors').get();
@@ -2669,7 +2669,7 @@
 
                     const creditsSnapshot = await db.collection('credits').where('collectorId', '==', uid).get();
                     const clientsMap = new Map();
-                    const clientsSnapshot = await db.collection('clients').get();
+                    const clientsSnapshot = await db.collection('clients').where('collectorId', '==', uid).get();
                     clientsSnapshot.forEach(doc => clientsMap.set(doc.id, doc.data()));
 
                     myCreditsList.innerHTML = '';
